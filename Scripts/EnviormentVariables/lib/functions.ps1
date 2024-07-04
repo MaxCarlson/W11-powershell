@@ -18,7 +18,11 @@ function Log-CurrentPath {
     )
     $logFilePath = "path_log.txt"
     $logEntry = "$(Get-Date) - $Target PATH: $CurrentPath`n"
-    Add-Content -Path $logFilePath -Value $logEntry
+    try {
+        Add-Content -Path $logFilePath -Value $logEntry
+    } catch {
+        Write-Error "Failed to log the current PATH: $_"
+    }
 }
 
 # Function to rollback the last PATH modification
@@ -28,14 +32,18 @@ function Rollback-Path {
     )
     $logFilePath = "path_log.txt"
     if (Test-Path -Path $logFilePath) {
-        $logEntries = Get-Content -Path $logFilePath
-        $lastEntryIndex = ($logEntries | Select-String -Pattern "$Target PATH:").Count - 1
-        if ($lastEntryIndex -ge 0) {
-            $lastPath = ($logEntries[$lastEntryIndex] -split "$Target PATH:")[1].Trim()
-            [System.Environment]::SetEnvironmentVariable("PATH", $lastPath, $Target)
-            Write-Output "PATH rolled back successfully. New PATH: $lastPath"
-        } else {
-            Write-Output "No previous $Target PATH found in the log."
+        try {
+            $logEntries = Get-Content -Path $logFilePath
+            $lastEntryIndex = ($logEntries | Select-String -Pattern "$Target PATH:").Count - 1
+            if ($lastEntryIndex -ge 0) {
+                $lastPath = ($logEntries[$lastEntryIndex] -split "$Target PATH:")[1].Trim()
+                [System.Environment]::SetEnvironmentVariable("PATH", $lastPath, $Target)
+                Write-Output "PATH rolled back successfully. New PATH: $lastPath"
+            } else {
+                Write-Output "No previous $Target PATH found in the log."
+            }
+        } catch {
+            Write-Error "Failed to read the log file or parse entries: $_"
         }
     } else {
         Write-Output "No log file found. Cannot perform rollback."

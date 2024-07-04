@@ -1,18 +1,45 @@
-# manage-path.ps1
-
 param (
+    [Alias("h", "help")]
+    [Parameter(Mandatory = $false, HelpMessage = "Display help message")]
+    [switch]$Help,
+
+    [Alias("e", "path")]
     [Parameter(Mandatory = $true, HelpMessage = "Specify the path to the executable or runnable file to add to PATH")]
     [string]$ExecutablePath,
 
+    [Alias("u")]
     [Parameter(Mandatory = $false, HelpMessage = "Add to user PATH instead of system PATH")]
     [switch]$User,
 
+    [Alias("r")]
     [Parameter(Mandatory = $false, HelpMessage = "Rollback the last PATH modification")]
     [switch]$Rollback,
 
-    [Parameter(Mandatory = $false, HelpMessage = "Force the decision to go through, useful if using this script in automation")]
+    [Alias("f")]
+    [Parameter(Mandatory = $false, HelpMessage = "Force the operation without user confirmation")]
     [switch]$Force
 )
+
+# Display help message if -h or --help is specified
+if ($Help) {
+    Write-Output @"
+Usage: addtopath.ps1 [-e <path>] [-u] [-r] [-f] [-h]
+
+Parameters:
+  -e, --path <path>        Specify the path to the executable or runnable file to add to PATH
+  -u                       Add to user PATH instead of system PATH
+  -r                       Rollback the last PATH modification
+  -f                       Force the operation without user confirmation
+  -h, --help               Display this help message
+
+Examples:
+  .\addtopath.ps1 -e "C:\tools"
+  .\addtopath.ps1 -e "C:\tools" -u
+  .\addtopath.ps1 -r
+  .\addtopath.ps1 -e "C:\tools" -f
+"@
+    exit
+}
 
 # Import the helper functions
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -26,20 +53,24 @@ if ($User.IsPresent) {
 
 # Rollback if the -Rollback switch is specified
 if ($Rollback.IsPresent) {
-    Rollback-Path -Target $pathTarget
+    try {
+        Rollback-Path -Target $pathTarget
+    } catch {
+        Write-Error "Failed to rollback PATH: $_"
+    }
     exit
 }
 
 # Check if the executable path is provided
 if (-not $ExecutablePath) {
-    Write-Output "Please specify the path to the executable or runnable file to add to PATH."
+    Write-Error "Please specify the path to the executable or runnable file to add to PATH."
     exit
 }
 
-# Check if the executable path exists and is a file
+# Check if the executable path exists and is a file or directory
 if (Test-Path -Path $ExecutablePath -PathType Leaf) {
     if (-not (Is-RunnableFile -FilePath $ExecutablePath)) {
-        Write-Output "The specified file is not a recognized runnable file: $ExecutablePath"
+        Write-Error "The specified file is not a recognized runnable file: $ExecutablePath"
         exit
     }
 
@@ -48,7 +79,7 @@ if (Test-Path -Path $ExecutablePath -PathType Leaf) {
 } elseif (Test-Path -Path $ExecutablePath -PathType Container) {
     $newPath = $ExecutablePath
 } else {
-    Write-Output "The specified path does not exist or is not a valid file or directory: $ExecutablePath"
+    Write-Error "The specified path does not exist or is not a valid file or directory: $ExecutablePath"
     exit
 }
 
@@ -78,21 +109,28 @@ if ($overlappingExecutables.Count -gt 0) {
     }
 }
 
-# Ask the user to verify the path
-Write-Output "The following path will be added to the PATH environment variable: $newPath"
-Write-Output "Is this correct? (y/n)"
-$response = Read-Host
+# Ask the user to verify the path, unless forced
+if (-not $Force.IsPresent) {
+    Write-Output "The following path will be added to the PATH environment variable: $newPath"
+    Write-Output "Is this correct? (y/n)"
+    $response = Read-Host
 
-if ($Force.IsNotPresent && $response -ne 'y') {
-    Write-Output "Operation cancelled by the user."
-    exit
+    if ($response -ne 'y') {
+        Write-Output "Operation cancelled by the user."
+        exit
+    }
 }
 
 # Get the current PATH
 $currentPath = [System.Environment]::GetEnvironmentVariable("PATH", $pathTarget)
 
 # Log the current PATH before modification
-Log-CurrentPath -CurrentPath $currentPath -Target $pathTarget
+try {
+    Log-CurrentPath -CurrentPath $currentPath -Target $pathTarget
+} catch {
+    Write-Error "Failed to log the current PATH: $_"
+    exit
+}
 
 # Check if the new path is already in the PATH
 if ($currentPath -like "*$newPath*") {
@@ -104,5 +142,9 @@ if ($currentPath -like "*$newPath*") {
 $newPathCombined = $currentPath + ";" + $newPath
 
 # Set the updated PATH
-[System.Environment]::SetEnvironmentVariable("PATH", $newPathCombined, $pathTarget)
-Write-Output "PATH updated successfully. New PATH: $newPathCombined"
+try {
+    [System.Environment]::SetEnvironmentVariable("PATH", $newPathCombined, $pathTarget)
+    Write-Output "PATH updated successfully. New PATH: $newPathCombined"
+} catch {
+    Write-Error "Failed to update the PATH variable: $_"
+}
