@@ -9,8 +9,8 @@ $scriptDirectory = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 
 # Find the name of the script
 $scriptFile = Get-ChildItem -Path . -Filter "*.ps1" |
-    Where-Object { $_.Name -ne "SetupSchedule.ps1" } |
-    Select-Object -First 1
+Where-Object { $_.Name -ne "SetupSchedule.ps1" } |
+Select-Object -First 1
 
 # Concatenate the current directory with the name of the script to be scheduled
 $scriptToRun = Join-Path -Path $scriptDirectory -ChildPath $scriptFile.Name
