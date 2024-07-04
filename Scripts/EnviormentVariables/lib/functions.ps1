@@ -1,11 +1,13 @@
 # lib/functions.ps1
 
+# Global Variables
+$runnableExtensions = @(".exe", ".bat", ".cmd", ".ps1", ".sh", ".py", ".rb", ".jar")
+
 # Function to check if the file is runnable
 function Is-RunnableFile {
     param (
         [string]$FilePath
     )
-    $runnableExtensions = @(".exe", ".bat", ".cmd", ".ps1", ".sh", ".py", ".rb", ".jar")
     $extension = [System.IO.Path]::GetExtension($FilePath)
     return $runnableExtensions -contains $extension
 }
@@ -20,7 +22,8 @@ function Log-CurrentPath {
     $logEntry = "$(Get-Date) - $Target PATH: $CurrentPath`n"
     try {
         Add-Content -Path $logFilePath -Value $logEntry
-    } catch {
+    }
+    catch {
         Write-Error "Failed to log the current PATH: $_"
     }
 }
@@ -39,13 +42,16 @@ function Rollback-Path {
                 $lastPath = ($logEntries[$lastEntryIndex] -split "$Target PATH:")[1].Trim()
                 [System.Environment]::SetEnvironmentVariable("PATH", $lastPath, $Target)
                 Write-Output "PATH rolled back successfully. New PATH: $lastPath"
-            } else {
+            }
+            else {
                 Write-Output "No previous $Target PATH found in the log."
             }
-        } catch {
+        }
+        catch {
             Write-Error "Failed to read the log file or parse entries: $_"
         }
-    } else {
+    }
+    else {
         Write-Output "No log file found. Cannot perform rollback."
     }
 }
@@ -56,7 +62,7 @@ function Check-OverlappingExecutables {
         [string]$NewPath,
         [array]$CurrentPathDirs
     )
-    $newPathExecutables = Get-ChildItem -Path $NewPath -Filter *.exe
+    $newPathExecutables = Get-ChildItem -Path $NewPath -File | Where-Object { $runnableExtensions -contains $_.Extension }
     $overlappingExecutables = @()
 
     foreach ($exe in $newPathExecutables) {
@@ -68,7 +74,7 @@ function Check-OverlappingExecutables {
     }
 
     return @{
-        NewPathExecutables = $newPathExecutables
+        NewPathExecutables     = $newPathExecutables
         OverlappingExecutables = $overlappingExecutables
     }
 }

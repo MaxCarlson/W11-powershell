@@ -1,5 +1,5 @@
 param (
-    [Alias("h", "help")]
+    [Alias("h")]
     [Parameter(Mandatory = $false, HelpMessage = "Display help message")]
     [switch]$Help,
 
