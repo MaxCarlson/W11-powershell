@@ -1,18 +1,16 @@
-Here is the updated README with a summarized section for `EnviormentVariables`:
-
-```markdown
 # W11-powershell
 
 This repository contains PowerShell scripts for managing and customizing a Windows 11 environment. It is designed to help streamline tasks and improve efficiency on your main machine.
 
 ## Table of Contents
 - [Introduction](#introduction)
-- [Folder Structure](#folder-structure)
+- [Scripts](#scripts)
   - [AddToPath](#addtopath)
   - [EnviormentVariables](#enviormentvariables)
   - [MoveFiles](#movefiles)
   - [Run-Program-Version-X](#run-program-version-x)
   - [WSL2IPUpdater](#wsl2ipupdater)
+- [KDEScripts](#kdescripts)
 - [Getting Started](#getting-started)
 - [Usage](#usage)
 - [Contributing](#contributing)
@@ -21,8 +19,8 @@ This repository contains PowerShell scripts for managing and customizing a Windo
 ## Introduction
 This repository holds various PowerShell scripts aimed at enhancing and automating different tasks within a Windows 11 setup.
 
-## Folder Structure
-The repository is organized into the following main folders:
+## Scripts
+Each subfolder under Scripts/ holds it's own windows CMD or PowerShell scripts.
 
 ### AddToPath
 This folder contains scripts related to modifying the system PATH variable.
@@ -44,6 +42,9 @@ This folder contains scripts and bat files for running specific program versions
 ### WSL2IPUpdater
 This folder contains scripts for updating and managing WSL2 IP configurations.
 
+## KDEScripts
+Not documented
+
 ## Getting Started
 To get started with the scripts in this repository, clone the repository to your local machine using:
 ```bash
@@ -61,6 +62,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 For any questions or issues, please contact me at carlsonamax@gmail.com.
-```
 
 This README now includes a summarized section for `EnviormentVariables` and outlines each subfolder within `Scripts`. Let me know if you need further customization or additional details for the other folders.
