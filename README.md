@@ -4,12 +4,13 @@ This repository contains PowerShell scripts for managing and customizing a Windo
 
 ## Table of Contents
 - [Introduction](#introduction)
-- [Folder Structure](#folder-structure)
+- [Scripts](#scripts)
   - [AddToPath](#addtopath)
   - [EnviormentVariables](#enviormentvariables)
   - [MoveFiles](#movefiles)
   - [Run-Program-Version-X](#run-program-version-x)
   - [WSL2IPUpdater](#wsl2ipupdater)
+- [KDEScripts](#kdescripts)
 - [Getting Started](#getting-started)
 - [Usage](#usage)
 - [Contributing](#contributing)
@@ -18,8 +19,8 @@ This repository contains PowerShell scripts for managing and customizing a Windo
 ## Introduction
 This repository holds various PowerShell scripts aimed at enhancing and automating different tasks within a Windows 11 setup.
 
-## Folder Structure
-The repository is organized into the following main folders:
+## Scripts
+Each subfolder under Scripts/ holds it's own windows CMD or PowerShell scripts.
 
 ### AddToPath
 This folder contains scripts related to modifying the system PATH variable.
@@ -40,6 +41,9 @@ This folder contains scripts and bat files for running specific program versions
 
 ### WSL2IPUpdater
 This folder contains scripts for updating and managing WSL2 IP configurations.
+
+## KDEScripts
+Not documented
 
 ## Getting Started
 To get started with the scripts in this repository, clone the repository to your local machine using:
