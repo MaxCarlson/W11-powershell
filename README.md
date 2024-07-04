@@ -1,6 +1,3 @@
-Here is the updated README with a summarized section for `EnviormentVariables`:
-
-```markdown
 # W11-powershell
 
 This repository contains PowerShell scripts for managing and customizing a Windows 11 environment. It is designed to help streamline tasks and improve efficiency on your main machine.
@@ -61,6 +58,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 For any questions or issues, please contact me at carlsonamax@gmail.com.
-```
 
 This README now includes a summarized section for `EnviormentVariables` and outlines each subfolder within `Scripts`. Let me know if you need further customization or additional details for the other folders.
