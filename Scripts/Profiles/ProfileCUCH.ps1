@@ -84,10 +84,34 @@ Register-EngineEvent PowerShell.OnIdle -Action { Push-LocationStack }
 # Sudo Simulation
 Function _ { Start-Process powershell -Verb runAs -ArgumentList ($args -join ' ') }
 
-# Aliases for commands that do not conflict
-Set-Alias -Name ag -Value "Get-Alias | Select-String"
-Set-Alias -Name egrep -Value "Select-String"
-Set-Alias -Name fgrep -Value "Select-String"
+# ag searches for aliases whose commands match the pattern
+Remove-Item Alias:ag -ErrorAction SilentlyContinue
+Remove-Item Function:ag -ErrorAction SilentlyContinue
+
+function aliasGrepFunction {
+    param(
+        [string]$Pattern
+    )
+    Get-Alias | Where-Object { $_.Definition -match $Pattern -or $_.Name -match $Pattern } | Format-Table -Property Name, Definition
+}
+
+Set-Alias -Name ag -Value aliasGrepFunction 
+
+# grep implementation for powershell
+function grepFunction {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Pattern,
+        [Parameter(ValueFromPipeline = $true)]
+        [string[]]$InputObject
+    )
+    process {
+        $InputObject | Select-String -Pattern $Pattern
+    }
+}
+
+Set-Alias -Name grep -Value grepFunction
+
 
 
 # Define the function to checkout the develop branch
