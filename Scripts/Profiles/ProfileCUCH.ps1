@@ -18,23 +18,68 @@ fnm env | ForEach-Object { Invoke-Expression $_ }
 
 
 # Setting Aliases, lots of UNIX aliases have been converted to powershell here
-# Directory Navigation
-Set-Alias -Name '-' -Value 'cd -'
-Function ... { cd ../.. }
-Function .... { cd ../../.. }
-Function ..... { cd ../../../.. }
-Function ...... { cd ../../../../.. }
+# Functions for changing directories
+$originalSetLocation = Get-Command Set-Location -CommandType Cmdlet
 
-# Quick Directory Navigation
-Function 1 { cd -1 }
-Function 2 { cd -2 }
-Function 3 { cd -3 }
-Function 4 { cd -4 }
-Function 5 { cd -5 }
-Function 6 { cd -6 }
-Function 7 { cd -7 }
-Function 8 { cd -8 }
-Function 9 { cd -9 }
+# Define a custom Set-Location function
+function Set-Location {
+    param (
+        [string]$path
+    )
+
+    switch ($path) {
+        '...' { & $originalSetLocation ../.. }
+        '....' { & $originalSetLocation ../../.. }
+        '.....' { & $originalSetLocation ../../../.. }
+        '......' { & $originalSetLocation ../../../../.. }
+        default { & $originalSetLocation $path }
+    }
+}
+
+# Alias cd to our custom Set-Location function
+#Set-Alias -Name cd -Value Set-Location
+
+# Alias for navigating to the previous directory (if needed, implement a custom solution as PowerShell does not support 'cd -')
+Function GoBack {
+    if ($global:PreviousLocation) {
+        Set-Location $global:PreviousLocation
+    }
+    else {
+        Write-Host "No previous location found."
+    }
+}
+Set-Alias -Name '-' -Value GoBack
+
+# Quick Directory Navigation (custom implementation required)
+$global:LocationStack = @()
+
+Function Push-LocationStack {
+    $global:LocationStack += (Get-Location).Path
+}
+Function Pop-LocationStack {
+    $index = $args[0]
+    if ($index -lt $global:LocationStack.Count) {
+        $path = $global:LocationStack[$index]
+        $global:LocationStack = $global:LocationStack[0..($index - 1)]
+        Set-Location $path
+    }
+    else {
+        Write-Host "No such location in stack."
+    }
+}
+
+Function 1 { Pop-LocationStack 1 }
+Function 2 { Pop-LocationStack 2 }
+Function 3 { Pop-LocationStack 3 }
+Function 4 { Pop-LocationStack 4 }
+Function 5 { Pop-LocationStack 5 }
+Function 6 { Pop-LocationStack 6 }
+Function 7 { Pop-LocationStack 7 }
+Function 8 { Pop-LocationStack 8 }
+Function 9 { Pop-LocationStack 9 }
+
+# Ensure the location is pushed every time the location changes
+Register-EngineEvent PowerShell.OnIdle -Action { Push-LocationStack }
 
 # Sudo Simulation
 Function _ { Start-Process powershell -Verb runAs -ArgumentList ($args -join ' ') }
@@ -44,7 +89,32 @@ Set-Alias -Name ag -Value "Get-Alias | Select-String"
 Set-Alias -Name egrep -Value "Select-String"
 Set-Alias -Name fgrep -Value "Select-String"
 
+
+# Define the function to checkout the develop branch
+function gchD {
+    git checkout develop
+}
+
+# Define the function to checkout the main/master branch
+function gchm {
+    if (git show-ref --verify --quiet refs/heads/main) {
+        git checkout main
+    }
+    elseif (git show-ref --verify --quiet refs/heads/master) {
+        git checkout master
+    }
+    else {
+        Write-Host "Neither 'main' nor 'master' branch exists."
+    }
+}
+
 # Git Aliases with new prefixes
+
+## Define the function to describe the latest tag
+function gdct {
+    git describe --tags $(git rev-list --tags --max-count=1)
+}
+
 Set-Alias -Name g -Value git
 Set-Alias -Name ga -Value "git add"
 Set-Alias -Name gaa -Value "git add --all"
@@ -78,11 +148,11 @@ Set-Alias -Name 'gcmtcs!' -Value "git commit --verbose --all --signoff --no-edit
 Set-Alias -Name gcmsoA -Value "git commit --all --signoff"
 Set-Alias -Name gcmsoM -Value "git commit --all --signoff --message"
 Set-Alias -Name gchb -Value "git checkout -b"
-Set-Alias -Name gchD -Value "git checkout $(git_develop_branch)"
+Set-Alias -Name gchD -Value gchD
 Set-Alias -Name gcfg -Value "git config --list"
 Set-Alias -Name gclR -Value "git clone --recurse-submodules"
 Set-Alias -Name gcln -Value "git clean --interactive -d"
-Set-Alias -Name gchm -Value "git checkout $(git_main_branch)"
+Set-Alias -Name gchm -Value gchm
 Set-Alias -Name gcmtmsg -Value "git commit --message"
 Set-Alias -Name gtco -Value "git checkout"
 Set-Alias -Name gchkR -Value "git checkout --recurse-submodules"
@@ -98,7 +168,7 @@ Set-Alias -Name gcmtcssM -Value "git commit --gpg-sign --signoff --message"
 # Additional Git Aliases
 Set-Alias -Name gd -Value "git diff"
 Set-Alias -Name gdca -Value "git diff --cached"
-Set-Alias -Name gdct -Value "git describe --tags $(git rev-list --tags --max-count=1)"
+Set-Alias -Name gdct -Value gdct
 Set-Alias -Name gdcw -Value "git diff --cached --word-diff"
 Set-Alias -Name gds -Value "git diff --staged"
 Set-Alias -Name gdt -Value "git diff-tree --no-commit-id --name-only -r"
@@ -110,7 +180,7 @@ Set-Alias -Name gfg -Value "git ls-files | Select-String"
 Set-Alias -Name gfo -Value "git fetch origin"
 Set-Alias -Name gg -Value "git gui citool"
 Set-Alias -Name gga -Value "git gui citool --amend"
-Set-Alias -Name gitPull -Value "git pull"                      # Changed from 'gl'
+Set-Alias -Name gpl -Value "git pull"                     
 Set-Alias -Name glg -Value "git log --stat"
 Set-Alias -Name glgg -Value "git log --graph"
 Set-Alias -Name glgga -Value "git log --graph --decorate --all"
@@ -118,5 +188,3 @@ Set-Alias -Name glgm -Value "git log --graph --max-count=10"
 Set-Alias -Name glgp -Value "git log --stat --patch"
 Set-Alias -Name glo -Value "git log --oneline --decorate"
 Set-Alias -Name glod -Value "git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset'"
-
-"gcmt", "gcmt!", "gchB", "gcmtA", "gcmtA!", "gcmA", "gcmtna!", "gcmtcn!", "gcmtcs!", "gcmsoA", "gcmsoM", "gchb", "gchD", "gcfg", "gclR", "gcln", "gchm", "gcmtmsg", "gtco", "gchkR", "gtlog", "gchp", "gchpa", "gchpc", "gcmsg", "gcmsoMsg", "gcmtcsigS", "gcmtcssM
