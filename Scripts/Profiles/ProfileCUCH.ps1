@@ -37,7 +37,7 @@ function Set-Location {
 }
 
 # Alias cd to our custom Set-Location function
-#Set-Alias -Name cd -Value Set-Location
+Set-Alias -Name cdobs -Value Set-Location 
 
 # Alias for navigating to the previous directory (if needed, implement a custom solution as PowerShell does not support 'cd -')
 Function GoBack {

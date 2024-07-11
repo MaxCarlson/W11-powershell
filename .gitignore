@@ -398,3 +398,4 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 Scripts/EnviormentVariables/path_log.txt
+Scripts/Profiles/ProfileDefaultLocation.txt
