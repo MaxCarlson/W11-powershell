@@ -139,54 +139,82 @@ function gdct {
     git describe --tags $(git rev-list --tags --max-count=1)
 }
 
-# Alias for git
+# Simple aliases that don't need to take parameters
 Set-Alias -Name g -Value git
+Set-Alias -Name ga -Value "git add"
+Set-Alias -Name gaa -Value "git add --all"
+Set-Alias -Name gam -Value "git am"
+Set-Alias -Name gama -Value "git am --abort"
+Set-Alias -Name gamc -Value "git am --continue"
+Set-Alias -Name gams -Value "git am --skip"
+Set-Alias -Name gamscp -Value "git am --show-current-patch"
+Set-Alias -Name gap -Value "git apply"
+Set-Alias -Name gapa -Value "git add --patch"
+Set-Alias -Name gapt -Value "git apply --3way"
+Set-Alias -Name gau -Value "git add --update"
+Set-Alias -Name gav -Value "git add --verbose"
+Set-Alias -Name gb -Value "git branch"
+Set-Alias -Name gbD -Value "git branch --delete --force"
+Set-Alias -Name gba -Value "git branch --all"
+Set-Alias -Name gbd -Value "git branch --delete"
+Set-Alias -Name gbg -Value "git branch -vv | Select-String ': gone\]'"
+Set-Alias -Name gbgD -Value "git branch -vv | Select-String ': gone\]' | ForEach-Object { git branch -D $_.Matches[0] }"
+Set-Alias -Name gbgd -Value "git branch -vv | Select-String ': gone\]' | ForEach-Object { git branch -d $_.Matches[0] }"
+Set-Alias -Name gbl -Value "git blame -w"
+Set-Alias -Name gchB -Value "git checkout -B"
+Set-Alias -Name gchb -Value "git checkout -b"
+Set-Alias -Name gchD -Value gchD
+Set-Alias -Name gcfg -Value "git config --list"
+Set-Alias -Name gclR -Value "git clone --recurse-submodules"
+Set-Alias -Name gcln -Value "git clean --interactive -d"
+Set-Alias -Name gchm -Value gchm
+Set-Alias -Name gtco -Value "git checkout"
+Set-Alias -Name gchkR -Value "git checkout --recurse-submodules"
+Set-Alias -Name gtlog -Value "git shortlog --summary --numbered"
+Set-Alias -Name gchp -Value "git cherry-pick"
+Set-Alias -Name gchpa -Value "git cherry-pick --abort"
+Set-Alias -Name gchpc -Value "git cherry-pick --continue"
+Set-Alias -Name gd -Value "git diff"
+Set-Alias -Name gdca -Value "git diff --cached"
+Set-Alias -Name gdct -Value gdct
+Set-Alias -Name gdcw -Value "git diff --cached --word-diff"
+Set-Alias -Name gds -Value "git diff --staged"
+Set-Alias -Name gdt -Value "git diff-tree --no-commit-id --name-only -r"
+Set-Alias -Name gdup -Value "git diff @{upstream}"
+Set-Alias -Name gdw -Value "git diff --word-diff"
+Set-Alias -Name gf -Value "git fetch"
+Set-Alias -Name gfa -Value "git fetch --all --prune --jobs=10"
+Set-Alias -Name gfg -Value "git ls-files | Select-String"
+Set-Alias -Name gfo -Value "git fetch origin"
+Set-Alias -Name gg -Value "git gui citool"
+Set-Alias -Name gga -Value "git gui citool --amend"
+Set-Alias -Name gpl -Value "git pull"
+Set-Alias -Name glg -Value "git log --stat"
+Set-Alias -Name glgg -Value "git log --graph"
+Set-Alias -Name glgga -Value "git log --graph --decorate --all"
+Set-Alias -Name glgm -Value "git log --graph --max-count=10"
+Set-Alias -Name glgp -Value "git log --stat --patch"
+Set-Alias -Name glo -Value "git log --oneline --decorate"
+Set-Alias -Name glod -Value "git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset'"
 
-# Functions for git commands
-function ga { git add @args }
-function gaa { git add --all @args }
-function gam { git am @args }
-function gama { git am --abort @args }
-function gamc { git am --continue @args }
-function gams { git am --skip @args }
-function gamscp { git am --show-current-patch @args }
-function gap { git apply @args }
-function gapa { git add --patch @args }
-function gapt { git apply --3way @args }
-function gau { git add --update @args }
-function gav { git add --verbose @args }
-function gb { git branch @args }
-function gbD { git branch --delete --force @args }
-function gba { git branch --all @args }
-function gbd { git branch --delete @args }
-function gbg { git branch -vv | Select-String ': gone\]' @args }
-function gbgD { git branch -vv | Select-String ': gone\]' | ForEach-Object { git branch -D $_.Matches[0] } @args }
-function gbgd { git branch -vv | Select-String ': gone\]' | ForEach-Object { git branch -d $_.Matches[0] } @args }
-function gbl { git blame -w @args }
+# Functions for commands that need to take parameters
+function gcmA {
+    param (
+        [string]$Message
+    )
+    git commit --all --message "$Message"
+}
+
 function gcmt { git commit --verbose @args }
-Set-Alias -Name 'gcmt!' -Value "git commit --verbose --amend"
-function gchB { git checkout -B @args }
+function gcmt! { git commit --verbose --amend @args }
 function gcmtA { git commit --verbose --all @args }
-Set-Alias -Name 'gcmtA!' -Value "git commit --verbose --all --amend"
-function gcmA { param([string]$Message) git commit --all --message "$Message" }
-Set-Alias -Name 'gcmtna!' -Value "git commit --verbose --all --no-edit --amend"
-Set-Alias -Name 'gcmtcn!' -Value "git commit --verbose --all --date=now --no-edit --amend"
-Set-Alias -Name 'gcmtcs!' -Value "git commit --verbose --all --signoff --no-edit --amend"
+function gcmtA! { git commit --verbose --all --amend @args }
+function gcmtna! { git commit --verbose --all --no-edit --amend @args }
+function gcmtcn! { git commit --verbose --all --date=now --no-edit @args }
+function gcmtcs! { git commit --verbose --all --signoff --no-edit --amend @args }
 function gcmsoA { git commit --all --signoff @args }
 function gcmsoM { git commit --all --signoff --message @args }
-function gchb { git checkout -b @args }
-function gchD { git checkout develop @args }
-function gcfg { git config --list @args }
-function gclR { git clone --recurse-submodules @args }
-function gcln { git clean --interactive -d @args }
-function gchm { git checkout main @args }
 function gcmtmsg { git commit --message @args }
-function gtco { git checkout @args }
-function gchkR { git checkout --recurse-submodules @args }
-function gtlog { git shortlog --summary --numbered @args }
-function gchp { git cherry-pick @args }
-function gchpa { git cherry-pick --abort @args }
-function gchpc { git cherry-pick --continue @args }
 function gcmsg { git commit --gpg-sign @args }
 function gcmsoMsg { git commit --signoff --message @args }
 function gcmtcsigS { git commit --gpg-sign --signoff @args }
@@ -199,3 +227,4 @@ function gcmtcssM { git commit --gpg-sign --signoff --message @args }
 
 # Variables Added to Profile from Add-Variable.ps1 script.
 $global:OBSIDIAN = 'C:\Users\mcarls\Documents\Obsidian-Vault\'
+$global:SCRIPTS = 'C:\Projects\W11-powershell\'
