@@ -1,15 +1,15 @@
 # Import the Argument Helper Module
 Write-Host "DEBUG: Importing ArgumentHelper module..." -ForegroundColor Yellow
-Import-Module -Name "$PSScriptRoot\..\Modules\ArgumentHelper.psm1"
+Import-Module -Name "$PSScriptRoot\..\Modules\ArgumentHelperMin.psm1"
 
 # Define the parameters for the script
 Write-Host "DEBUG: Defining parameters..." -ForegroundColor Yellow
 $parameters = @{
-    SourcePaths        = @{ DefaultValue = @() }
-    DestinationFolder  = @{ DefaultValue = $null }
-    LinkNames          = @{ DefaultValue = @() }
-    LinkType           = @{ DefaultValue = "auto" }
-    h                  = @{ DefaultValue = $false }
+    SourcePaths       = @{ DefaultValue = @() }
+    DestinationFolder = @{ DefaultValue = $null }
+    LinkNames         = @{ DefaultValue = @() }
+    LinkType          = @{ DefaultValue = "auto" }
+    h                 = @{ DefaultValue = $false }
 }
 
 # Help message for the script
@@ -37,15 +37,22 @@ Examples:
 "@
 
 Write-Host "DEBUG: Starting argument parsing..." -ForegroundColor Yellow
+Write-Host "DEBUG: $PSBoundParameters" -ForegroundColor Cyan
 
+# Ensure we explicitly check how parameters are passed before invoking Get-Arguments
+Write-Host "DEBUG: SourcePaths: $($PSBoundParameters['SourcePaths'])" -ForegroundColor Yellow
+Write-Host "DEBUG: DestinationFolder: $($PSBoundParameters['DestinationFolder'])" -ForegroundColor Yellow
+
+# Now proceed with calling Get-Arguments
 try {
-    # Parse arguments
-    $args = Get-Arguments -HelpMessage $helpMessage -Parameters $parameters
+    $args = Get-Arguments -HelpMessage $helpMessage -Parameters $parameters -PassedArgs $PSBoundParameters
     Write-Host "DEBUG: Parsed arguments: $args" -ForegroundColor Green
-} catch {
+}
+catch {
     Write-Host "DEBUG: Exception caught - $($_.Exception.Message)" -ForegroundColor Red
     return
 }
+
 
 # Stop execution if no valid arguments exist
 if (-not $args.SourcePaths.Count) {
@@ -75,15 +82,16 @@ for ($i = 0; $i -lt $args.SourcePaths.Count; $i++) {
     $type = $args.LinkType
     if ($type -eq "auto") {
         $type = if (Test-Path $source -PathType Container) { "directory" }
-                elseif (Test-Path $source -PathType Leaf) { "file" }
-                else { throw "Source path does not exist: $source" }
+        elseif (Test-Path $source -PathType Leaf) { "file" }
+        else { throw "Source path does not exist: $source" }
     }
 
     Write-Host "DEBUG: Creating symbolic link - $linkPath -> $source" -ForegroundColor Green
     try {
         New-Item -ItemType SymbolicLink -Path $linkPath -Target $source -Force
         Write-Host "Symbolic link created: $linkPath -> $source" -ForegroundColor Green
-    } catch {
+    }
+    catch {
         Write-Error "Failed to create symbolic link for $source. Error: $_"
     }
 }

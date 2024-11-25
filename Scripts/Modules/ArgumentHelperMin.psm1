@@ -1,5 +1,3 @@
-# ArgumentsHelperMin.psm1
-
 function Get-Arguments {
     param (
         [Parameter(Mandatory = $false)]
@@ -14,15 +12,26 @@ function Get-Arguments {
 
     Write-Host "DEBUG: Inside Get-Arguments" -ForegroundColor Cyan
     Write-Host "DEBUG: Full PassedArgs: $PassedArgs" -ForegroundColor Yellow
+    
+    # Check if the PassedArgs contains the 'SourcePaths' argument
+    Write-Host "DEBUG: SourcePaths in PassedArgs: $($PassedArgs['SourcePaths'])" -ForegroundColor Magenta
 
     # Initialize parsedArgs to hold the final arguments
     $parsedArgs = @{}
 
     # Loop through all defined parameters
     foreach ($key in $Parameters.Keys) {
+        Write-Host "DEBUG: Checking parameter -$key" -ForegroundColor Green
+
         if ($PassedArgs.ContainsKey($key)) {
             # If argument is passed, use it
             $parsedArgs[$key] = $PassedArgs[$key]
+
+            # Ensure that SourcePaths (or other list parameters) are arrays
+            if ($key -eq 'SourcePaths' -and -not $parsedArgs[$key] -is [array]) {
+                $parsedArgs[$key] = @($parsedArgs[$key])  # Force to array if it's not already
+            }
+
             Write-Host "DEBUG: Using passed value for -${key}: $($PassedArgs[$key])" -ForegroundColor Green
         }
         elseif ($Parameters[$key] -is [hashtable] -and $Parameters[$key].ContainsKey('DefaultValue')) {
@@ -47,6 +56,7 @@ function Get-Arguments {
     Write-Host "DEBUG: Final parsed arguments: $parsedArgs" -ForegroundColor Cyan
     return $parsedArgs
 }
+
 
 function Test-Arguments {
     param (

@@ -16,6 +16,13 @@ Import-Module -Name Microsoft.WinGet.CommandNotFound
 # Initialize fnm (Fast Node Manager) environment variables
 fnm env | ForEach-Object { Invoke-Expression $_ }
 
+function GitMan {
+    param ($Subcommand)
+    git help -m $Subcommand | groff -T ascii -man | more
+}
+
+Set-Alias gitman GitMan
+
 
 # Setting Aliases, lots of UNIX aliases have been converted to powershell here
 # Functions for changing directories
