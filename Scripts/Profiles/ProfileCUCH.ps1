@@ -44,7 +44,10 @@ function Set-Location {
 }
 
 # Alias cd to our custom Set-Location function
-Set-Alias -Name cdobs -Value Set-Location 
+Set-Alias -Name cdd -Value Set-Location "C:\Users\mcarls\Documents\"
+Set-Alias -Name cdobs -Value Set-Location "C:\Users\mcarls\Documents\Obsidian-Vault\"
+Set-Alias -Name cdp -Value Set-Location "C:\Projects\"
+Set-Alias -Name cdps -Value Set-Location "C:\Projects\W11-powershell\"
 
 # Alias for navigating to the previous directory (if needed, implement a custom solution as PowerShell does not support 'cd -')
 Function GoBack {
