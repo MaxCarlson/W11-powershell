@@ -12,10 +12,10 @@ function Start-BackgroundJob {
 
     try {
         $job = Start-Job -ScriptBlock $ScriptBlock -Name $JobName
-        Write-Color -Message "Job '$JobName' started with ID $($job.Id)." -Type "Success"
+        Write-Color -Message "Job '${JobName}' started with ID $($job.Id)." -Type "Success"
         return $job
     } catch {
-        Write-Color -Message "Failed to start job: $_" -Type "Error"
+        Write-Color -Message "Failed to start job: $($_)" -Type "Error"
     }
 }
 
@@ -33,7 +33,7 @@ function Get-ActiveBackgroundJobs {
         }
         return $jobs
     } catch {
-        Write-Color -Message "Failed to retrieve active jobs: $_" -Type "Error"
+        Write-Color -Message "Failed to retrieve active jobs: $($_)" -Type "Error"
     }
 }
 
@@ -48,7 +48,7 @@ function Stop-AllBackgroundJobs {
         $jobs | Stop-Job -Force
         Write-Color -Message "Stopped all running jobs." -Type "Success"
     } catch {
-        Write-Color -Message "Failed to stop all jobs: $_" -Type "Error"
+        Write-Color -Message "Failed to stop all jobs: $($_)" -Type "Error"
     }
 }
 
@@ -61,8 +61,8 @@ function Stop-BackgroundJobById {
 
     try {
         Stop-Job -Id $JobId -Force
-        Write-Color -Message "Job with ID $JobId has been stopped." -Type "Success"
+        Write-Color -Message "Job with ID ${JobId} has been stopped." -Type "Success"
     } catch {
-        Write-Color -Message "Failed to stop job with ID $JobId: $_" -Type "Error"
+        Write-Color -Message "Failed to stop job with ID ${JobId}: $($_)" -Type "Error"
     }
 }

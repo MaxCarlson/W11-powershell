@@ -47,7 +47,7 @@ function Set-Location {
 Function cdd { Set-Location "C:\Users\mcarls\Documents\" }
 Function cdobs { Set-Location "C:\Users\mcarls\Documents\Obsidian-Vault\" }
 Function cdp { Set-Location "C:\Projects\" }
-Function cdps { Set-Location "C:\Projects\W11-powershell\" }
+Function cdps { Set-Location "C:\Projects\W11-powershell\Scripts\" }
 
 # Alias for navigating to the previous directory (if needed, implement a custom solution as PowerShell does not support 'cd -')
 Function GoBack {
