@@ -44,10 +44,10 @@ function Set-Location {
 }
 
 # Alias cd to our custom Set-Location function
-Set-Alias -Name cdd -Value Set-Location "C:\Users\mcarls\Documents\"
-Set-Alias -Name cdobs -Value Set-Location "C:\Users\mcarls\Documents\Obsidian-Vault\"
-Set-Alias -Name cdp -Value Set-Location "C:\Projects\"
-Set-Alias -Name cdps -Value Set-Location "C:\Projects\W11-powershell\"
+Function cdd { Set-Location "C:\Users\mcarls\Documents\" }
+Function cdobs { Set-Location "C:\Users\mcarls\Documents\Obsidian-Vault\" }
+Function cdp { Set-Location "C:\Projects\" }
+Function cdps { Set-Location "C:\Projects\W11-powershell\" }
 
 # Alias for navigating to the previous directory (if needed, implement a custom solution as PowerShell does not support 'cd -')
 Function GoBack {
@@ -149,71 +149,74 @@ function gdct {
     git describe --tags $(git rev-list --tags --max-count=1)
 }
 
+
 # Simple aliases that don't need to take parameters
-Set-Alias -Name g -Value git
-Set-Alias -Name ga -Value "git add"
-Set-Alias -Name gaa -Value "git add --all"
-Set-Alias -Name gam -Value "git am"
-Set-Alias -Name gama -Value "git am --abort"
-Set-Alias -Name gamc -Value "git am --continue"
-Set-Alias -Name gams -Value "git am --skip"
-Set-Alias -Name gamscp -Value "git am --show-current-patch"
-Set-Alias -Name gap -Value "git apply"
-Set-Alias -Name gapa -Value "git add --patch"
-Set-Alias -Name gapt -Value "git apply --3way"
-Set-Alias -Name gau -Value "git add --update"
-Set-Alias -Name gav -Value "git add --verbose"
-Set-Alias -Name gb -Value "git branch"
-Set-Alias -Name gbD -Value "git branch --delete --force"
-Set-Alias -Name gba -Value "git branch --all"
-Set-Alias -Name gbd -Value "git branch --delete"
-Set-Alias -Name gbg -Value "git branch -vv | Select-String ': gone\]'"
-Set-Alias -Name gbgD -Value "git branch -vv | Select-String ': gone\]' | ForEach-Object { git branch -D $_.Matches[0] }"
-Set-Alias -Name gbgd -Value "git branch -vv | Select-String ': gone\]' | ForEach-Object { git branch -d $_.Matches[0] }"
-Set-Alias -Name gbl -Value "git blame -w"
-Set-Alias -Name gchB -Value "git checkout -B"
-Set-Alias -Name gchb -Value "git checkout -b"
-Set-Alias -Name gchD -Value gchD
-Set-Alias -Name gcfg -Value "git config --list"
-Set-Alias -Name gclR -Value "git clone --recurse-submodules"
-Set-Alias -Name gcln -Value "git clean --interactive -d"
-Set-Alias -Name gchm -Value gchm
-Set-Alias -Name gtco -Value "git checkout"
-Set-Alias -Name gchkR -Value "git checkout --recurse-submodules"
-Set-Alias -Name gtlog -Value "git shortlog --summary --numbered"
-Set-Alias -Name gchp -Value "git cherry-pick"
-Set-Alias -Name gchpa -Value "git cherry-pick --abort"
-Set-Alias -Name gchpc -Value "git cherry-pick --continue"
-Set-Alias -Name gd -Value "git diff"
-Set-Alias -Name gdca -Value "git diff --cached"
-Set-Alias -Name gdct -Value gdct
-Set-Alias -Name gdcw -Value "git diff --cached --word-diff"
-Set-Alias -Name gds -Value "git diff --staged"
-Set-Alias -Name gdt -Value "git diff-tree --no-commit-id --name-only -r"
-Set-Alias -Name gdup -Value "git diff @{upstream}"
-Set-Alias -Name gdw -Value "git diff --word-diff"
-Set-Alias -Name gf -Value "git fetch"
-Set-Alias -Name gfa -Value "git fetch --all --prune --jobs=10"
-Set-Alias -Name gfg -Value "git ls-files | Select-String"
-Set-Alias -Name gfo -Value "git fetch origin"
-Set-Alias -Name gg -Value "git gui citool"
-Set-Alias -Name gga -Value "git gui citool --amend"
-Set-Alias -Name gpl -Value "git pull"
-Set-Alias -Name glg -Value "git log --stat"
-Set-Alias -Name glgg -Value "git log --graph"
-Set-Alias -Name glgga -Value "git log --graph --decorate --all"
-Set-Alias -Name glgm -Value "git log --graph --max-count=10"
-Set-Alias -Name glgp -Value "git log --stat --patch"
-Set-Alias -Name glo -Value "git log --oneline --decorate"
-Set-Alias -Name glod -Value "git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset'"
+Set-Alias -Name g -Value "git"
+Set-Alias -Name ga  -Value "git add"
+function gaa  { git add --all }
+function gp { git push }
+function gam  { git am }
+function gama  { git am --abort }
+function gamc  { git am --continue }
+function gams  { git am --skip }
+function gamscp  { git am --show-current-patch }
+function gap  { git apply }
+function gapa  { git add --patch }
+function gapt  { git apply --3way }
+function gau  { git add --update }
+function gav  { git add --verbose }
+function gb  { git branch }
+function gbD  { git branch --delete --force }
+function gba  { git branch --all }
+function gbd  { git branch --delete }
+function gbg  { git branch -vv | Select-String ': gone\]' }
+function gbgD  { git branch -vv | Select-String ': gone\]' | ForEach-Object { git branch -D $_.Matches[0] } }
+function gbgd  { git branch -vv | Select-String ': gone\]' | ForEach-Object { git branch -d $_.Matches[0] } }
+function gbl  { git blame -w }
+function gchB  { git checkout -B }
+function gchb  { git checkout -b }
+function gchD  { ch }
+function gcfg  { git config --list }
+function gclR  { git clone --recurse-submodules }
+function gcln  { git clean --interactive -d }
+function gchm  { ch }
+function gtco  { git checkout }
+function gchkR  { git checkout --recurse-submodules }
+function gtlog  { git shortlog --summary --numbered }
+function gchp  { git cherry-pick }
+function gchpa  { git cherry-pick --abort }
+function gchpc  { git cherry-pick --continue }
+function gd  { git diff }
+function gdca  { git diff --cached }
+function gdct  { dc }
+function gdcw  { git diff --cached --word-diff }
+function gds  { git diff --staged }
+function gdt  { git diff-tree --no-commit-id --name-only -r }
+#function gdup  { git diff @{upstream} }
+function gdw  { git diff --word-diff }
+function gf  { git fetch }
+function gfa  { git fetch --all --prune --jobs=10 }
+function gfg  { git ls-files | Select-String }
+function gfo  { git fetch origin }
+function gg  { git gui citool }
+function gga  { git gui citool --amend }
+function gpl { git pull }
+function glg  { git log --stat }
+function glgg  { git log --graph }
+function glgga  { git log --graph --decorate --all }
+function glgm  { git log --graph --max-count=10 }
+function glgp  { git log --stat --patch }
+function glo  { git log --oneline --decorate }
+function glod  { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset' }
 
 # Functions for commands that need to take parameters
-function gcmA {
+function gcam {
     param (
         [string]$Message
     )
     git commit --all --message "$Message"
 }
+function gst { git status }
 
 function gcmt { git commit --verbose @args }
 function gcmt! { git commit --verbose --amend @args }
