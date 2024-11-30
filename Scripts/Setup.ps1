@@ -6,13 +6,15 @@
 #gh repo clone W11-powershell
 # Example Setup Script with Fixes
 
+.\SetupScripts\StartSSHAgent.ps1
+
 $modulesToLink = @(
-    @{ Path = ".\Modules\Coloring.psm1"; LinkType = "hard"; Target = "system" }
-    @{ Path = ".\Modules\Installer.psm1"; LinkType = "hard"; Target = "system" }
-    @{ Path = ".\Modules\SessionTools.psm1"; LinkType = "hard"; Target = "system" }
-    @{ Path = ".\Modules\Downloader.psm1"; LinkType = "hard"; Target = "system" }
-    @{ Path = ".\Modules\Extractor.psm1"; LinkType = "hard"; Target = "system" }
-    @{ Path = ".\Modules\PathManager.psm1"; LinkType = "hard"; Target = "system" }
+    @{ Path = ".\Modules\Coloring.psm1"; LinkType = "hard"; Target = "user" }
+    @{ Path = ".\Modules\Installer.psm1"; LinkType = "hard"; Target = "user" }
+    @{ Path = ".\Modules\SessionTools.psm1"; LinkType = "hard"; Target = "user" }
+    @{ Path = ".\Modules\Downloader.psm1"; LinkType = "hard"; Target = "user" }
+    @{ Path = ".\Modules\Extractor.psm1"; LinkType = "hard"; Target = "user" }
+    @{ Path = ".\Modules\PathManager.psm1"; LinkType = "hard"; Target = "user" }
 )
 
 foreach ($module in $modulesToLink) {
