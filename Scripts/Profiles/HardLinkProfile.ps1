@@ -36,7 +36,7 @@
 
 param (
     [Parameter(Mandatory = $false)]
-    [string]$LinkPath = "$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1",
+    [string]$LinkPaths = @("$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1", "C:\Program Files\PowerShell\7\profile.ps1")
 
     [Parameter(Mandatory = $false)]
     [string]$TargetPath = (Join-Path -Path (Split-Path -Parent $MyInvocation.MyCommand.Path) -ChildPath "ProfileCUCH.ps1"),
@@ -81,6 +81,8 @@ function Get-UniqueBackupPath {
     return $uniquePath
 }
 
+
+
 # Ensure the target file exists
 if (-not (Test-Path $TargetPath)) {
     Write-Color "The target file '$TargetPath' does not exist." -Color Red
@@ -88,48 +90,50 @@ if (-not (Test-Path $TargetPath)) {
 }
 
 # Check if a file already exists at the link location
-if (Test-Path $LinkPath) {
-    Write-Color "A file already exists at the link location: $LinkPath" -Color Red
+foreach ($LinkPath in $LinkPaths) {
+    if (Test-Path $LinkPath) {
+      Write-Color "A file already exists at the link location: $LinkPath" -Color Red
 
-    if (-not $Replace) {
-        # Interactive mode: Prompt for user input if no flag was set
-        $Replace = Read-Host "Do you want to (n)ot erase, (y) erase & backup, or (a) erase without backup?"
-    }
+      if (-not $Replace) {
+          # Interactive mode: Prompt for user input if no flag was set
+          $Replace = Read-Host "Do you want to (n)ot erase, (y) erase & backup, or (a) erase without backup?"
+      }
 
-    # Handle based on user input or flag
-    switch ($Replace.ToLower()) {
-        'n' {
-            Write-Color "Operation aborted. No changes made." -Color Yellow
-            exit 0
-        }
-        'y' {
-            # Save a unique backup
-            $backupPath = Get-UniqueBackupPath -Path (Join-Path -Path (Split-Path -Parent $MyInvocation.MyCommand.Path) -ChildPath (Split-Path -Leaf $LinkPath))
-            Copy-Item -Path $LinkPath -Destination $backupPath -Force
-            Write-Color "Existing file backed up to: $backupPath" -Color Yellow
-            Remove-Item -Path $LinkPath -Force
-            Write-Color "Original file deleted: $LinkPath" -Color Yellow
-        }
-        'a' {
-            # Remove without backup
-            Remove-Item -Path $LinkPath -Force
-            Write-Color "Existing file erased without backup." -Color Yellow
-        }
-        default {
-            Write-Color "Invalid option. Operation aborted." -Color Red
-            exit 1
-        }
+      # Handle based on user input or flag
+      switch ($Replace.ToLower()) {
+          'n' {
+              Write-Color "Operation aborted. No changes made." -Color Yellow
+              exit 0
+          }
+          'y' {
+              # Save a unique backup
+              $backupPath = Get-UniqueBackupPath -Path (Join-Path -Path (Split-Path -Parent $MyInvocation.MyCommand.Path) -ChildPath (Split-Path -Leaf $LinkPath))
+              Copy-Item -Path $LinkPath -Destination $backupPath -Force
+              Write-Color "Existing file backed up to: $backupPath" -Color Yellow
+              Remove-Item -Path $LinkPath -Force
+              Write-Color "Original file deleted: $LinkPath" -Color Yellow
+          }
+          'a' {
+              # Remove without backup
+              Remove-Item -Path $LinkPath -Force
+              Write-Color "Existing file erased without backup." -Color Yellow
+          }
+          default {
+              Write-Color "Invalid option. Operation aborted." -Color Red
+              exit 1
+          }
+      }
     }
-}
 
 # Use cmd to create the hard link
-$cmdCommand = "mklink /H `"$LinkPath`" `"$TargetPath`""
-Write-Color "Executing: $cmdCommand" -Color Yellow
-cmd /c $cmdCommand
+    $cmdCommand = "mklink /H `"$LinkPath`" `"$TargetPath`""
+    Write-Color "Executing: $cmdCommand" -Color Yellow
+    cmd /c $cmdCommand
 
 # Confirm success
-if (Test-Path $LinkPath) {
-    Write-Color "Hard link created successfully: $LinkPath -> $TargetPath" -Color Green
-} else {
-    Write-Color "Failed to create the hard link." -Color Red
+    if (Test-Path $LinkPath) {
+      Write-Color "Hard link created successfully: $LinkPath -> $TargetPath" -Color Green
+    } else {
+      Write-Color "Failed to create the hard link." -Color Red
+    }
 }

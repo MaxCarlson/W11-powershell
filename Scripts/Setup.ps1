@@ -8,6 +8,7 @@
 
 .\SetupScripts\StartSSHAgent.ps1
 
+# Define the modules to link
 $modulesToLink = @(
     @{ Path = ".\Modules\Coloring.psm1"; LinkType = "hard"; Target = "user" }
     @{ Path = ".\Modules\Installer.psm1"; LinkType = "hard"; Target = "user" }
@@ -15,7 +16,13 @@ $modulesToLink = @(
     @{ Path = ".\Modules\Downloader.psm1"; LinkType = "hard"; Target = "user" }
     @{ Path = ".\Modules\Extractor.psm1"; LinkType = "hard"; Target = "user" }
     @{ Path = ".\Modules\PathManager.psm1"; LinkType = "hard"; Target = "user" }
+    @{ Path = ".\Modules\Add-ToPath.psm1"; LinkType = "hard"; Target = "user" }
+    @{ Path = ".\Modules\LinkManager.psm1"; LinkType = "hard"; Target = "user" }
+    @{ Path = ".\Modules\BackupAndRestore.psm1"; LinkType = "hard"; Target = "user" }
 )
+
+# PowerShell Modules path
+$userModulesPath = "$env:USERPROFILE\Documents\PowerShell\Modules"
 
 foreach ($module in $modulesToLink) {
     # Ensure $module.Path is valid
@@ -24,20 +31,29 @@ foreach ($module in $modulesToLink) {
         continue
     }
 
-    # Call the LinkModule.ps1 script with arguments
-    try {
-        & ".\Helpers\LinkModule.ps1" -ModulePath $module.Path -TargetLocation $module.Target -LinkType $module.LinkType
-        Write-Host "Linked module $($module.Path) successfully." -ForegroundColor Green
-    } catch {
-        Write-Host "Failed to link module $($module.Path). Error: $_" -ForegroundColor Red
-        continue
+    # Get the module name from the file name
+    $moduleName = (Get-Item $module.Path).BaseName
+    $moduleTargetPath = Join-Path -Path $userModulesPath -ChildPath $moduleName
+
+    # Ensure the target folder exists
+    if (-not (Test-Path -Path $moduleTargetPath)) {
+        New-Item -ItemType Directory -Path $moduleTargetPath -Force | Out-Null
+        Write-Host "Created directory for module: $moduleTargetPath" -ForegroundColor Cyan
     }
 
-    # Check if the module is already imported
-    $moduleName = (Get-Item $module.Path).BaseName
+    # Create a hard link for the .psm1 file inside the target folder
+    $targetLinkPath = Join-Path -Path $moduleTargetPath -ChildPath "$moduleName.psm1"
+    if (-not (Test-Path -Path $targetLinkPath)) {
+        New-Item -ItemType HardLink -Path $targetLinkPath -Target $module.Path
+        Write-Host "Linked module $($module.Path) to $targetLinkPath successfully." -ForegroundColor Green
+    } else {
+        Write-Host "Hard link for module $moduleName already exists. Skipping." -ForegroundColor Yellow
+    }
+
+    # Import the module to ensure it's available in the current session
     if (-not (Get-Module -Name $moduleName -ListAvailable)) {
         try {
-            Import-Module -Name $module.Path
+            Import-Module -Name $targetLinkPath
             Write-Host "Imported Module $moduleName successfully." -ForegroundColor Green
         } catch {
             Write-Host "Failed to import module $moduleName. Error: $_" -ForegroundColor Red
@@ -47,9 +63,11 @@ foreach ($module in $modulesToLink) {
     }
 }
 
+return
+
 # Ensure package managers are installed
 #Install-WingetPackageManager
-Install-ChocolateyPackageManager
+#Install-ChocolateyPackageManager
 #Install-ScoopPackageManager
 
 # Install programs

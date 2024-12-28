@@ -70,16 +70,16 @@ if ($downloadSuccess -or -not $DownloadPath) {
 
         # Step 1: Collect all .exe files
         try {
-            $exeFiles = Get-ChildItem -Path $ExtractPath -Recurse -Filter '*.exe' -ErrorAction Stop
-            Write-Color -Message "Found $($exeFiles.Count) .exe file(s)." -Type "Success"
+            $programFiles = Get-ChildItem -Path $ExtractPath -Recurse -Include '*.exe', '*.bat' -ErrorAction Stop
+            Write-Color -Message "Found $($programFiles.Count) .exe file(s)." -Type "Success"
 
-            if ($exeFiles.Count -eq 0) {
+            if ($programFiles.Count -eq 0) {
                 Write-Color -Message "No .exe files found in the directory tree." -Type "Error"
             } else {
                 Write-Color -Message "Listing all .exe files found:" -Type "Info"
-                foreach ($exeFile in $exeFiles) {
-                    Write-Color -Message "File Path: $($exeFile.FullName)" -Type "Warning"
-                    Write-Color -Message "Containing Directory: $($exeFile.DirectoryName)" -Type "Warning"
+                foreach ($programFile in $programFiles) {
+                    Write-Color -Message "File Path: $($programFile.FullName)" -Type "Warning"
+                    Write-Color -Message "Containing Directory: $($programFile.DirectoryName)" -Type "Warning"
                 }
             }
         } catch {
@@ -89,7 +89,7 @@ if ($downloadSuccess -or -not $DownloadPath) {
 
         # Step 2: Extract unique directories containing executables
         try {
-            $exeFolders = $exeFiles | ForEach-Object {
+            $exeFolders = $programFiles | ForEach-Object {
                 $dir = $_.DirectoryName
                 if ([string]::IsNullOrWhiteSpace($dir)) {
                     Write-Color -Message "Skipping empty directory for file -> $($_.FullName)" -Type "Error"
