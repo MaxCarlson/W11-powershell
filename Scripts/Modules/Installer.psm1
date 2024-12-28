@@ -1,5 +1,18 @@
 # Utility functions for package installation
 
+<#
+.SYNOPSIS
+Checks if a program is installed.
+
+.DESCRIPTION
+Validates whether a specified program is installed on the system by searching the PATH or registry.
+
+.PARAMETER ProgramName
+The name of the program to check.
+
+.EXAMPLE
+Test-ProgramInstallation -ProgramName "git"
+#>
 function Test-ProgramInstallation {
     param (
         [string]$CommandName
@@ -8,6 +21,16 @@ function Test-ProgramInstallation {
     return (Get-Command $CommandName -ErrorAction SilentlyContinue) -ne $null
 }
 
+<#
+.SYNOPSIS
+Installs Winget package manager on the system.
+
+.DESCRIPTION
+Downloads and installs the latest version of Microsoft's Winget package manager.
+
+.EXAMPLE
+Install-WingetPackageManager
+#>
 function Install-WingetPackageManager {
     try {
         if (-not (Get-Command "winget" -ErrorAction SilentlyContinue)) {
@@ -23,6 +46,16 @@ function Install-WingetPackageManager {
     }
 }
 
+<#
+.SYNOPSIS
+Installs Chocolatey package manager on the system.
+
+.DESCRIPTION
+Sets up Chocolatey, a Windows package manager, for managing software installations.
+
+.EXAMPLE
+Install-ChocolateyPackageManager
+#>
 function Install-ChocolateyPackageManager {
     try {
         if (-not (Get-Command "choco" -ErrorAction SilentlyContinue)) {
@@ -39,6 +72,16 @@ function Install-ChocolateyPackageManager {
     }
 }
 
+<#
+.SYNOPSIS
+Installs Scoop package manager on the system.
+
+.DESCRIPTION
+Sets up Scoop, a Windows package manager, for managing software installations.
+
+.EXAMPLE
+Install-ScoopPackageManager
+#>
 function Install-ScoopPackageManager {
     try {
         if (-not (Test-Path "$HOME\scoop")) {
@@ -54,6 +97,19 @@ function Install-ScoopPackageManager {
     }
 }
 
+<#
+.SYNOPSIS
+Installs a specified program using the configured package manager.
+
+.DESCRIPTION
+Uses a selected package manager (e.g., Winget, Chocolatey, Scoop) to install a program.
+
+.PARAMETER ProgramName
+The name of the program to install.
+
+.EXAMPLE
+Install-Program -ProgramName "nodejs"
+#>
 function Install-Program {
     param (
         [string]$ProgramName,

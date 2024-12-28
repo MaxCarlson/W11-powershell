@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+Reloads the current session's PATH variable.
+
+.DESCRIPTION
+Combines user and machine PATH variables to refresh the current session's PATH.
+
+.EXAMPLE
+Refresh-Path
+#>
 function Refresh-Path {
     # Combine User and Machine PATH variables
     $userPath = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
@@ -28,7 +38,23 @@ function Refresh-Environment {
     Write-Host "Both PATH and PowerShell profile have been reloaded." -ForegroundColor Green
 }
 
-# Add a variable permenantly to the profile
+# Add a variable permenantly to the profilePath
+<#
+.SYNOPSIS
+Adds a persistent variable to the PowerShell profile.
+
+.DESCRIPTION
+Writes a global variable definition to the PowerShell profile for use in all future sessions.
+
+.PARAMETER VariableName
+The name of the variable to add.
+
+.PARAMETER Value
+The value of the variable to add.
+
+.EXAMPLE
+Add-PersistentVariable -VariableName "MyPath" -Value "C:\MyTools"
+#>
 function Add-PersistentVariable {
     param (
         [Parameter(Mandatory = $true)]

@@ -1,3 +1,16 @@
+<#
+.SYNOPSIS
+Adds a specified directory to the system's PATH variable.
+
+.DESCRIPTION
+This function updates the system's PATH variable by appending the specified directory if it does not already exist.
+
+.PARAMETER Path
+The directory to add to the PATH variable.
+
+.EXAMPLE
+Add-ToPath -Path "C:\MyTools"
+#>
 function Add-ToPath {
     param(
         [Parameter(Mandatory=$true)]

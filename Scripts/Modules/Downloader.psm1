@@ -1,5 +1,21 @@
 Import-Module "$PSScriptRoot/Coloring.psm1"
 
+<#
+.SYNOPSIS
+Downloads a file from a given URL.
+
+.DESCRIPTION
+Retrieves a file from a specified URL and saves it to the target directory.
+
+.PARAMETER URL
+The URL of the file to download.
+
+.PARAMETER OutputPath
+The path where the file will be saved.
+
+.EXAMPLE
+Get-File -URL "https://example.com/file.zip" -OutputPath "C:\Downloads"
+#>
 function Get-File {
     param (
         [Parameter(Mandatory = $true)]

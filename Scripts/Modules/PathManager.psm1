@@ -1,5 +1,22 @@
 Import-Module "$PSScriptRoot/Coloring.psm1"
 
+
+<#
+.SYNOPSIS
+Adds a directory to the system PATH.
+
+.DESCRIPTION
+Appends a specified directory to the system PATH variable for the current session or permanently.
+
+.PARAMETER Path
+The directory to add to the PATH.
+
+.PARAMETER Permanent
+Specifies whether the change should be permanent.
+
+.EXAMPLE
+Add-PathItem -Path "C:\MyTools" -Permanent
+#>
 function Add-PathItem {
     param (
         [Parameter(Mandatory = $true)]

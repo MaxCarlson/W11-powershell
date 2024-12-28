@@ -1,5 +1,20 @@
 # Get-UserHelp.psm1
+<#
+.SYNOPSIS
+Provides help information for user-defined modules and scripts.
 
+.DESCRIPTION
+Displays categorized help information for modules, scripts, and executables in the environment.
+
+.PARAMETER Category
+The category of help to retrieve (e.g., Modules, Scripts).
+
+.PARAMETER Name
+(Optional) The specific name of the module or script to get help for.
+
+.EXAMPLE
+Get-UserHelp -Category Modules
+#>
 function Get-UserHelp {
     param (
         [string]$Category = "Modules",

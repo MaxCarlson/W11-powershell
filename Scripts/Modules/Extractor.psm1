@@ -1,5 +1,21 @@
 Import-Module "$PSScriptRoot/Coloring.psm1"
 
+<#
+.SYNOPSIS
+Extracts the contents of an archive file.
+
+.DESCRIPTION
+Supports various archive formats and extracts their contents to the specified directory.
+
+.PARAMETER ArchivePath
+The path to the archive file.
+
+.PARAMETER DestinationPath
+The directory where the archive contents will be extracted.
+
+.EXAMPLE
+Expand-CustomArchive -ArchivePath "C:\Downloads\file.zip" -DestinationPath "C:\Extracted"
+#>
 function Expand-CustomArchive {
     param (
         [Parameter(Mandatory = $true)]

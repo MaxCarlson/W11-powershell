@@ -457,7 +457,16 @@ function Restore-ScheduledTasks {
 
 
 # CENTRALIZED FUNCTIONS --------------------------------------------------
+<#
+.SYNOPSIS
+Performs a backup of all critical system configurations.
 
+.DESCRIPTION
+Creates backups for environment variables, firewall rules, registry keys, and scheduled tasks.
+
+.EXAMPLE
+Backup-All -OutputDirectory "C:\Backups"
+#>
 function Backup-All {
     param (
         [string]$BaseDirectory = "$HOME\SystemBackups",
@@ -485,6 +494,16 @@ function Backup-All {
     }
 }
 
+<#
+.SYNOPSIS
+Restores all critical system configurations from backups.
+
+.DESCRIPTION
+Restores environment variables, firewall rules, registry keys, and scheduled tasks from the specified backup directory.
+
+.EXAMPLE
+Restore-All -InputDirectory "C:\Backups"
+#>
 function Restore-All {
     param (
         [string]$BackupDirectory,

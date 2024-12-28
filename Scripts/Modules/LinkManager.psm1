@@ -1,3 +1,19 @@
+<#
+.SYNOPSIS
+Creates a new symbolic or hard link.
+
+.DESCRIPTION
+Generates a symbolic or hard link between a target file and a link path.
+
+.PARAMETER Target
+The file or directory to link to.
+
+.PARAMETER LinkPath
+The path of the symbolic or hard link to create.
+
+.EXAMPLE
+New-Link -Target "C:\MyData" -LinkPath "C:\MyLink"
+#>
 function New-Link {
     param(
         [Parameter(Mandatory = $true)]
@@ -57,6 +73,19 @@ function New-Link {
     Write-Host "Operation completed successfully!" -ForegroundColor Green
 }
 
+<#
+.SYNOPSIS
+Removes a symbolic or hard link.
+
+.DESCRIPTION
+Deletes the specified symbolic or hard link without affecting the target file or directory.
+
+.PARAMETER LinkPath
+The path of the symbolic or hard link to remove.
+
+.EXAMPLE
+Remove-Link -LinkPath "C:\MyLink"
+#>
 function Remove-Link {
     param(
         [Parameter(Mandatory = $true)]
