@@ -1,40 +1,95 @@
 # Define the function to add a variable permanently
-# Does so by copying the Variable to the ProfileCUCH.ps1 file
-# Then running the CopyProfileToActive.ps1 script to copy the ProfileCUCH.ps1 to the active profile
 function Add-PersistentVariable {
     param (
         [Parameter(Mandatory = $true)]
         [string]$VariableName,
         [Parameter(Mandatory = $true)]
-        [string]$Value
+        [string]$Value,
+        [switch]$InsertHeader
     )
 
-    # Check if the variable name is already in use
-    if (Get-Variable -Name $VariableName -ErrorAction SilentlyContinue) {
-        Write-Host "The variable '$VariableName' is already in use. Choose a different name."
+    # Reserved PowerShell variables
+    $reservedVariables = Get-Variable | ForEach-Object { $_.Name }
+
+    # Check if the variable name is reserved
+    if ($reservedVariables -contains $VariableName) {
+        Write-Host "The variable '$VariableName' is reserved by PowerShell. Choose a different name." -ForegroundColor Yellow
+        return
     }
-    else {
-        # Add the variable to the current session
-        Set-Variable -Name $VariableName -Value $Value
 
-        # Add the variable to the PowerShell profile
-        $profilePath = "$PSScriptRoot\..\Profiles\ProfileCUCH.ps1"
+    # Define the path to the current user profile
+    $profilePath = $PROFILE
 
-        # Check if the profile file exists
-        if (-not (Test-Path $profilePath)) {
-            # Create an empty profile file
-            New-Item -ItemType File -Path $profilePath -Force
+    # Ensure the profile exists or ask to create one
+    if (-not (Test-Path $profilePath)) {
+        Write-Host "The profile does not exist at: $profilePath" -ForegroundColor Yellow
+        $createProfile = Read-Host "Would you like to create a new profile? (y/n)"
+        if ($createProfile -notmatch "^(y|Y)$") {
+            Write-Host "Profile creation aborted. Exiting without changes." -ForegroundColor Red
+            return
         }
 
-        # Append the variable definition to the profile file
-        Add-Content -Path $profilePath -Value "`n`$global:$VariableName = '$Value'"
-
-        $addToProfilePath = "$PSScriptRoot\..\Profiles\CopyProfileToActive.ps1"
-        & $addToProfilePath 
-
-        Write-Host "The variable '$VariableName' has been added and will be available in future sessions."
+        # Create a new profile file without overwriting existing files
+        Write-Host "Creating a new profile at: $profilePath" -ForegroundColor Green
+        New-Item -ItemType File -Path $profilePath -Force
     }
+
+    # Read the profile content
+    $profileContent = Get-Content -Path $profilePath -Raw
+
+    # Define the magic header text
+    $magicHeader = "#### Permenant Variables - Added to Profile manually or bybusing Add-PersistentVariable function. ####"
+
+    # Check if the magic header exists
+    if ($profileContent -notmatch [regex]::Escape($magicHeader)) {
+        if ($InsertHeader.IsPresent) {
+            # Insert the header at the appropriate location
+            if ($profileContent -match "oh-my-posh init") {
+                # After oh-my-posh initialization
+                $profileContent = $profileContent -replace "(oh-my-posh init .+?Invoke-Expression)", "`$1`n$magicHeader"
+            } else {
+                # After the first non-commented line
+                $profileContent = $profileContent -replace "(?<=^(?!#).+$)", "$magicHeader`n`$0", 1
+            }
+            Write-Host "Magic header added to the profile." -ForegroundColor Green
+        } else {
+            Write-Host "Warning: Magic header not found in the profile." -ForegroundColor Yellow
+            Write-Host "Add the following line manually to your profile or use -InsertHeader to add it automatically:" -ForegroundColor Yellow
+            Write-Host "`n$magicHeader`n" -ForegroundColor Cyan
+            return
+        }
+    }
+
+    # Split the profile content into lines
+    $lines = $profileContent -split "`n"
+
+    # Find the line index where variables should be added
+    $headerIndex = $lines.IndexOf($magicHeader)
+    $insertIndex = $headerIndex + 1
+
+    while ($insertIndex -lt $lines.Count -and $lines[$insertIndex] -match "^\$global:[a-zA-Z0-9_]+\s*=\s*.+$") {
+        $insertIndex++
+    }
+
+    # Check if the variable already exists in the profile
+    if ($lines -match "^\$global:$VariableName\s*=\s*.+$") {
+        Write-Host "The variable '$VariableName' is already declared in the profile." -ForegroundColor Yellow
+        return
+    }
+
+    # Add the new variable
+    $newVariable = "`$global:$VariableName = '$Value'"
+    $lines.Insert($insertIndex, $newVariable)
+
+    # Write the updated content back to the profile
+    Set-Content -Path $profilePath -Value ($lines -join "`n")
+
+    Write-Host "The variable '$VariableName' has been added and will be available in future sessions." -ForegroundColor Green
 }
 
 # Example usage
-Add-PersistentVariable -VariableName $args[0] -Value $args[1]
+# Add a variable and insert the header automatically
+# Add-PersistentVariable -VariableName "NEW_VARIABLE" -Value "ExampleValue" -InsertHeader
+
+# Add a variable without inserting the header automatically
+# Add-PersistentVariable -VariableName "NEW_VARIABLE" -Value "ExampleValue"
