@@ -7,6 +7,7 @@
 # Example Setup Script with Fixes
 
 .\SetupScripts\StartSSHAgent.ps1
+.\SetupScripts\ProgramBackup.ps1 -Setup -BackupFrequency Daily -UpdateFrequency Daily
 
 # Define the modules to link
 $modulesToLink = @(
@@ -19,6 +20,7 @@ $modulesToLink = @(
     @{ Path = ".\Modules\Add-ToPath.psm1"; LinkType = "hard"; Target = "user" }
     @{ Path = ".\Modules\LinkManager.psm1"; LinkType = "hard"; Target = "user" }
     @{ Path = ".\Modules\BackupAndRestore.psm1"; LinkType = "hard"; Target = "user" }
+    @{ Path = ".\Modules\HelpModule.psm1"; LinkType = "hard"; Target = "user" }
 )
 
 # PowerShell Modules path
