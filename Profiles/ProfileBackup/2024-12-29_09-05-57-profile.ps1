@@ -23,6 +23,14 @@ function GitMan {
 
 Set-Alias gitman GitMan
 
+# Winget setup for small devices
+function swinget {
+    param (
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$Arguments
+    )
+    winget @Arguments | Format-Table -Wrap -AutoSize
+}
 
 # Setting Aliases, lots of UNIX aliases have been converted to powershell here
 # Functions for changing directories
@@ -46,8 +54,8 @@ function Set-Location {
 # Alias cd to our custom Set-Location function
 Function cdd { Set-Location "C:\Users\mcarls\Documents\" }
 Function cdobs { Set-Location "C:\Users\mcarls\Documents\Obsidian-Vault\" }
-Function cdp { Set-Location "C:\Projects\" }
-Function cdps { Set-Location "C:\Projects\W11-powershell\Scripts\" }
+Function cdrs { Set-Location "$HOME\Repos\" }
+Function cdps { Set-Location "$HOME\Repos\W11-powershell\Scripts\" }
 
 # Alias for navigating to the previous directory (if needed, implement a custom solution as PowerShell does not support 'cd -')
 Function GoBack {
@@ -241,3 +249,13 @@ function gcmtcssM { git commit --gpg-sign --signoff --message @args }
 # Variables Added to Profile from Add-Variable.ps1 script.
 $global:OBSIDIAN = 'C:\Users\mcarls\Documents\Obsidian-Vault\'
 $global:SCRIPTS = 'C:\Projects\W11-powershell\'
+
+# Import the Chocolatey Profile that contains the necessary code to enable
+# tab-completions to function for `choco`.
+# Be aware that if you are missing these lines from your profile, tab completion
+# for `choco` will not function.
+# See https://ch0.co/tab-completion for details.
+$ChocolateyProfile = "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+if (Test-Path($ChocolateyProfile)) {
+  Import-Module "$ChocolateyProfile"
+}
