@@ -2,6 +2,68 @@
 #
 #Write-Host "Inside DebugUtils"
 #Write-Host "DebugProfile value: ${DebugProfile}"
+function Write-Debug {
+    param (
+        [string]$Message = "",
+
+        [Parameter()]
+        [ValidateSet("Error", "Warning", "Verbose", "Information", "Debug")]
+        [string]$Channel = "Debug",
+
+        [AllowNull()]
+        [object]$Condition = $true,
+
+        [switch]$FileAndLine # Flag to include caller file and line number
+    )
+
+    # Ensure DebugProfile is enabled
+    if (-not $DebugProfile) {
+        return
+    }
+
+    # Validate and convert the Condition parameter
+    $isConditionMet = $true
+    if ($Condition -ne $null) {
+        try {
+            $isConditionMet = [bool]$Condition
+        } catch {
+            Write-Warning "Invalid Condition value for Write-Debug: '${Condition}'. Defaulting to `${false}`."
+            $isConditionMet = $false
+        }
+    }
+
+    if (-not $isConditionMet) {
+        return
+    }
+
+    # Prepare the message with optional caller information
+    $outputMessage = $Message
+    if ($FileAndLine) {
+        # Get caller information for debugging
+        $caller = Get-PSCallStack | Select-Object -Skip 1 -First 1
+        $callerFile = $caller.ScriptName
+        $callerLine = $caller.ScriptLineNumber
+        $outputMessage = "[${callerFile}:${callerLine}] $Message"
+    }
+
+    # Define channel colors
+    $colorMap = @{
+        "Error"       = "Red"
+        "Warning"     = "Yellow"
+        "Verbose"     = "Gray"
+        "Information" = "Cyan"
+        "Debug"       = "Green"
+    }
+
+    $color = $colorMap[$Channel]
+    if ($color) {
+        Write-Host $outputMessage -ForegroundColor $color
+    } else {
+        Write-Warning "Invalid channel specified: ${Channel}"
+    }
+}
+
+
 function Debug-Action {
     param (
         [switch]$VerboseAction,  # If true, enable verbose actions (like -Verbose or extra logging)
@@ -51,58 +113,6 @@ function Debug-Action {
     }
 }
 
-function Write-Debug {
-    param (
-        [string]$Message = "",
-
-        [Parameter()]
-        [ValidateSet("Error", "Warning", "Verbose", "Information", "Debug")]
-        [string]$Channel = "Debug",
-
-        [AllowNull()]
-        [object]$Condition = $true
-    )
-
-    # Ensure DebugProfile is enabled
-    if (-not $DebugProfile) {
-        return
-    }
-
-    # Validate and convert the Condition parameter
-    $isConditionMet = $true
-    if ($Condition -ne $null) {
-        try {
-            $isConditionMet = [bool]$Condition
-        } catch {
-            Write-Warning "Invalid Condition value for Write-Debug: '${Condition}'. Defaulting to `${false}`."
-            $isConditionMet = $false
-        }
-    }
-
-    if (-not $isConditionMet) {
-        return
-    }
-
-    # Get caller information for debugging
-    $callerFile = $MyInvocation.ScriptName
-    $callerLine = $MyInvocation.ScriptLineNumber
-
-    # Define channel colors
-    $colorMap = @{
-        "Error"       = "Red"
-        "Warning"     = "Yellow"
-        "Verbose"     = "Gray"
-        "Information" = "Cyan"
-        "Debug"       = "Green"
-    }
-
-    $color = $colorMap[$Channel]
-    if ($color) {
-        Write-Host "[${callerFile}:${callerLine}] ${Message}" -ForegroundColor $color
-    } else {
-        Write-Warning "Invalid channel specified: ${Channel}"
-    }
-}
 
 # Export the function for use outside the module
 Export-ModuleMember -Function Debug-Action, Write-Debug

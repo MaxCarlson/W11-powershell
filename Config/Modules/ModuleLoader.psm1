@@ -1,5 +1,11 @@
 # Module-Loader.psm1
 #Write-Host "Inside ModuleLoader"
+if (-not $global:ModuleImportedModuleLoader) {
+    $global:ModuleImportedModuleLoader = $true
+} else {
+    Write-Debug -Message "Attempting to import module twice!" -Channel "Error" -Condition $DebugProfile -FileAndLine
+    return
+}
 
 # Define custom failure actions for specific modules
 $Script:FailureActions = @{
@@ -41,14 +47,15 @@ function script:Initialize-Module {
         } else {
             Import-Module -Name $ModulePath -ErrorAction Stop
         }
-        Write-Debug -Message "Successfully imported module: $ModuleName" -Channel "Debug" -Condition ($DebugProfile -ne $null -and $DebugProfile -ne "")
+        Write-Debug -Message "Successfully imported module: $ModuleName" -Channel "Debug" -Condition $DebugProfile
     } catch {
-        Write-Host "Failed try for module, in catch"
+        Write-Debug -Message "ModuleLoader: Failed try for module: $ModuleName, in catch" -Channel "Error" -Condition $DebugProfile -FileAndLine
         # Log error details with caller context
-        $callerFile = $MyInvocation.ScriptName
-        $callerLine = $MyInvocation.ScriptLineNumber
+        #$callerFile = $MyInvocation.ScriptName
+        #$callerLine = $MyInvocation.ScriptLineNumber
 
-        Write-Debug -Message "[${callerFile}:${callerLine}] Failed to import module: $ModuleName. Error: $($_.Exception.Message)" -Channel "Warning" -Condition ($DebugProfile -ne $null -and $DebugProfile -ne "")
+        #Write-Debug -Message "[${callerFile}:${callerLine}] Failed to import module: $ModuleName. Error: $($_.Exception.Message)" -Channel "Warning" -Condition ($DebugProfile -ne $null -and $DebugProfile -ne "")
+        Write-Debug -Message "Failed to import module: ${ModuleName}. Error: $($_Exception.Message)" -Channel "Warning" -Condition $DebugProfile -FileAndLine
 
         # Check for custom failure action
         if ($FailureActions.ContainsKey($ModuleName)) {

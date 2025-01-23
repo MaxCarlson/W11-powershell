@@ -1,0 +1,31 @@
+{
+  "default": [
+    {
+      "keys": ["Ctrl", "+", "C"],
+      "action": "Copy"
+    },
+    {
+      "keys": ["Ctrl", "+", "V"],
+      "action": "Paste"
+    },
+    {
+      "keys": ["Alt", "+", "Tab"],
+      "action": "Switch Windows"
+    }
+  ],
+  "Windows Terminal": [
+    {
+      "keys": ["Ctrl", "+", "Shift", "+", "T"],
+      "action": "Open New Tab"
+    },
+    {
+      "keys": ["Ctrl", "+", "D"],
+      "action": "Split Pane"
+    },
+    {
+      "keys": ["Ctrl", "+", "Shift", "+", "W"],
+      "action": "Close Tab"
+    }
+  ]
+}
+

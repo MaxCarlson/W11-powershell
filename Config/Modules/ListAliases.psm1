@@ -1,3 +1,10 @@
+if (-not $global:ModuleImportedListAliases) {
+    $global:ModuleImportedListAliases = $true
+} else {
+    Write-Debug -Message "Attempting to import module twice!" -Channel "Error" -Condition $DebugProfile -FileAndLine
+    return
+}
+
 # Simplified Eza Functions in PowerShell
 # Ensure 'eza' is installed and available in your PATH
 #Write-Host "Inside ls-aliases"
@@ -5,7 +12,7 @@
 function l { eza --no-permissions --git --icons --no-user }
 function ls { eza -lah --no-permissions --git --icons --modified --group-directories-first --smart-group --no-user }
 function la { eza -a --no-permissions --git --icons --classify --grid --group-directories-first }
-function ll { eza -lah --no-permissions --git --icons --created --group-directories-first --smart-group }
+function ll { eza -lah --no-permissions --git --icons --created --group-directories-first --smart-group @ARGS }
 function lo { eza -lah --no-permissions --git --icons --no-user --no-time --no-filesize }
 function lg { eza -lah --no-permissions --git --icons --created --modified --group-directories-first --smart-group --git-repos }
 function lll { eza -lah --git --icons --created --modified --group-directories-first --smart-group --total-size }
@@ -27,8 +34,21 @@ function lt5 { eza --icons --classify --long --tree --level=5 --git }
 
 
 # Export functions 
-Export-ModuleMember -Function `
-    l, ls, la, ll, lo, lg, lll, laha, `
-    lss, lst, lse, lx, `
-    l1, l2, l3, l4, l5, `
-    lt1, lt2, lt3, lt4, lt5
+#Export-ModuleMember -Function `
+#    l, ls, la, ll, lo, lg, lll, laha, `
+#    lss, lst, lse, lx, `
+#    l1, l2, l3, l4, l5, `
+#    lt1, lt2, lt3, lt4, lt5
+#
+
+
+# List of functions to exclude from being exported
+#$excludeFunctions = @("PrivateFunction1", "PrivateFunction2")
+
+# Dynamically export all functions except those in the exclude list
+#Get-Command -CommandType Function -Scope Script | Where-Object {
+#    $excludeFunctions -notcontains $_.Name
+#} | ForEach-Object {
+#    Export-ModuleMember -Function $_.Name
+#}
+

@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-A script to periodically back up and update the list of installed programs from winget, choco, and scoop.
+A script to periodically back up and update the list of installed programs from winget, choco, scoop, and cargo.
 
 .DESCRIPTION
 This script performs the following tasks:
-1. Backups the list of programs installed via winget, choco, and scoop.
+1. Backups the list of programs installed via winget, choco, scoop, and cargo.
 2. Updates all installed packages for these package managers without user input.
 3. Provides a `-Setup` flag to schedule the script to run periodically for backups and updates.
 4. Allows customization of backup and update frequencies and times.
@@ -41,6 +41,7 @@ $LogFile = "${BackupDir}\script-errors.log"
 $WingetBackup = "${BackupDir}\winget-installed.txt"
 $ChocoBackup = "${BackupDir}\choco-installed.txt"
 $ScoopBackup = "${BackupDir}\scoop-installed.txt"
+$CargoBackup = "${BackupDir}\cargo-installed.txt"
 
 # Ensure backup directory exists
 try {
@@ -64,7 +65,7 @@ function Check-ExistingTasks {
     }
 }
 
-# Function to update winget, choco, and scoop
+# Function to update winget, choco, scoop, and cargo
 function Update-PackageManagers {
     try {
         Write-Output "Updating winget packages..."
@@ -88,6 +89,14 @@ function Update-PackageManagers {
     } catch {
         Write-Error "Error updating Scoop packages: $_"
         Add-Content $LogFile "[$(Get-Date)] Error updating Scoop packages: $_"
+    }
+
+    try {
+        Write-Output "Updating Cargo packages..."
+        cargo install-update -a
+    } catch {
+        Write-Error "Error updating Cargo packages: $_"
+        Add-Content $LogFile "[$(Get-Date)] Error updating Cargo packages: $_"
     }
 }
 
@@ -115,6 +124,14 @@ function Backup-InstalledPrograms {
     } catch {
         Write-Error "Error backing up Scoop packages: $_"
         Add-Content $LogFile "[$(Get-Date)] Error backing up Scoop packages: $_"
+    }
+
+    try {
+        Write-Output "Backing up Cargo packages to $CargoBackup..."
+        cargo install --list | Out-String | Set-Content "${CargoBackup}"
+    } catch {
+        Write-Error "Error backing up Cargo packages: $_"
+        Add-Content $LogFile "[$(Get-Date)] Error backing up Cargo packages: $_"
     }
 }
 
@@ -183,4 +200,3 @@ try {
     Add-Content $LogFile "[$(Get-Date)] Unexpected error: $_"
     exit 1
 }
-
