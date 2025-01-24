@@ -92,7 +92,7 @@ function Setup-ExecutableLinks {
 
 #>
 function Setup-PathVariable {
-    Write-Debug -Message "Ensuring $PWSH_BIN_DIR is in the user's PATH" -Channel "Info"
+    Write-Debug -Message "Ensuring $PWSH_BIN_DIR is in the user's PATH" -Channel "Information"
     Set-PathVariable -PathToAdd $PWSH_BIN_DIR
 }
 

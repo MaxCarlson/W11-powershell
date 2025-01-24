@@ -1,7 +1,35 @@
 # DebugUtils.psm1
 #
-#Write-Host "Inside DebugUtils"
-#Write-Host "DebugProfile value: ${DebugProfile}"
+<#
+.SYNOPSIS
+    Provides debugging utilities for logging and color-coded debug messages in PowerShell scripts.
+
+.DESCRIPTION
+    The DebugUtils module contains functions to help with debugging scripts. It provides a flexible
+    `Write-Debug` function that allows color-coded messages based on severity levels, `Debug-Action`
+    for conditional debugging execution, and `Write-TestAllColors` to visually test available colors.
+
+.FUNCTIONS
+    - Write-Debug: Logs messages with color-coded channels for structured debugging output.
+    - Debug-Action: Executes a script block with optional verbose or suppressed output modes.
+    - Write-TestAllColors: Prints out all available PowerShell console colors and displays the
+      predefined Write-Debug color mappings.
+
+.EXAMPLE
+    Write-Debug -Message "This is a debug message" -Channel "Debug"
+    Outputs a debug message in the predefined "Debug" color.
+
+.EXAMPLE
+    Debug-Action -VerboseAction { Write-Host "Executing in verbose mode" }
+    Runs an action with verbosity enabled if DebugProfile is set.
+
+.EXAMPLE
+    Write-TestAllColors
+    Prints all PowerShell-supported colors and the defined color mappings for debugging messages.
+
+.LINK
+    Write-Debug, Debug-Action, Write-TestAllColors
+#>
 
 # Define channel colors
 $script:colorMap = @{
@@ -13,12 +41,38 @@ $script:colorMap = @{
     "Success"     = "Green"
 }
 
+<#
+.SYNOPSIS
+    Logs a message to the console with color-coded output based on the specified channel.
+
+.DESCRIPTION
+    The Write-Debug function allows structured logging of debug messages by specifying a channel.
+    The message is only displayed if DebugProfile is enabled. Optionally, it can include file and line
+    information to assist in tracking execution flow.
+
+.PARAMETER Message
+    The debug message to display.
+
+.PARAMETER Channel
+    Specifies the type of message. Supports: Error, Warning, Verbose, Information, Debug, Success.
+    "Info" is an alias for "Information".
+
+.PARAMETER Condition
+    If provided, the message will only be logged if the condition evaluates to $true.
+
+.PARAMETER FileAndLine
+    If specified, includes the script file name and line number where the debug message originated.
+
+.EXAMPLE
+    Write-Debug -Message "Initialization complete" -Channel "Success"
+    Displays a green success message.
+#>
 function Write-Debug {
     param (
         [string]$Message = "",
 
         [Parameter()]
-        [ValidateSet("Error", "Warning", "Verbose", "Information", "Debug", "Success")]
+        [ValidateSet("Error", "Warning", "Verbose", "Information", "Info", "Debug", "Success")]
         [string]$Channel = "Debug",
 
         [AllowNull()]
@@ -57,6 +111,8 @@ function Write-Debug {
         $outputMessage = "[${callerFile}:${callerLine}] $Message"
     }
 
+    if($Channel -eq "Info")
+        $Channel = "Information"
 
     $color = $colorMap[$Channel]
     if ($color) {
@@ -66,7 +122,40 @@ function Write-Debug {
     }
 }
 
+<#
+.SYNOPSIS
+    Executes a script block with optional verbose or suppressed debugging output.
 
+.DESCRIPTION
+    The Debug-Action function runs a provided script block and can either enable verbose mode
+    or suppress debug output depending on the DebugProfile setting.
+
+.PARAMETER VerboseAction
+    Enables additional debug messages during execution.
+
+.PARAMETER SuppressOutput
+    Suppresses output if DebugProfile is disabled.
+
+.PARAMETER Action
+    The script block to execute.
+
+.EXAMPLE
+    Debug-Action -VerboseAction { Write-Host "Running action..." }
+    Runs the provided action in verbose mode.
+#>
+
+<#
+.SYNOPSIS
+    Displays all PowerShell-supported colors and the current Write-Debug color mappings.
+
+.DESCRIPTION
+    This function prints each color available in PowerShell's console and also displays
+    the predefined Write-Debug color mappings for structured debugging.
+
+.EXAMPLE
+    Write-TestAllColors
+    Prints all PowerShell-supported colors and the defined debug color mappings.
+#>
 function Debug-Action {
     param (
         [switch]$VerboseAction,  # If true, enable verbose actions (like -Verbose or extra logging)
