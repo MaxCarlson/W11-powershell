@@ -12,6 +12,11 @@ if (-not $global:ProfileLoaded) {
 
 # Define Script scope DebugProfile variable
 $global:DebugProfile = $true
+# Define base directory paths
+$global:PWSH_REPO = "$env:USERPROFILE\Repos\W11-powershell"
+$global:PWSH_SCRIPT_DIR = "$PWSH_REPO\Scripts"
+$global:PWSH_BIN_DIR = "$PWSH_REPO\bin"
+
 
 # Debug function for printing. Still is in DebugUtils, but it's nice to be able to use it before loading that module
 function script:Write-Debug {
@@ -94,9 +99,6 @@ function Log-Time {
 # Log the start time for oh-my-posh
 Log-Time "Starting PROFILE Logging"
 
-# Initialize Oh-My-Posh with the desired theme
-oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\jandedobbeleer.omp.json" | Invoke-Expression
-Log-Time "oh-my-posh init finished"
 
 #$zoxideInit = (&zoxide init pwsh) -join "`n"
 #Invoke-Expression $zoxideInit
@@ -207,6 +209,26 @@ if (Test-Path($ChocolateyProfile)) {
   Import-Module "$ChocolateyProfile"
 }
 Log-Time "Finished Importing ChocolateyProfile Module"
+
+
+# >>> conda initialize >>>
+# CONDA IS ACTIVATED IN $PROFILE.CurrentUserCurrentHost
+# this is $PROFILE.AllUsersAllHosts
+# !! Contents within this block are managed by 'conda init' !!
+#(& "C:\Users\mcarls\anaconda3\shell\condabin\conda-hook.ps1") #| Out-Null
+#conda activate base
+# <<< conda initialize <<<
+
+
+# ~~~~ END OF PROFILE ~~~~
+#
+#
+# Initialize Oh-My-Posh with the desired theme
+oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\jandedobbeleer.omp.json" | Invoke-Expression
+Log-Time "oh-my-posh init finished"
+
+# ~~~~ NOTHING AFTER THIS LINE ~~~~
+
 
 #function __zoxide_z {
 #    if ($args.Length -eq 0) {

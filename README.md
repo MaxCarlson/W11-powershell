@@ -19,6 +19,19 @@ This repository contains PowerShell scripts for managing and customizing a Windo
 ## Introduction
 This repository holds various PowerShell scripts aimed at enhancing and automating different tasks within a Windows 11 setup.
 
+## Modules
+
+A short list of some of the useful module functions
+
+### SystemUtils
+- New-FileLink: Create a sym/hard link from a source at a dest
+- Set-PathVariable: Add a path to the User or System PATH if it doesn't exist yet
+
+### ClipBoardModule
+- Set-FileClipboard (sfc): Set a file equal to the current contents of the clipboard
+- Get-FileClipboard (gfc): Set your clipboard equal to the contents of the file
+- Add-ClipboardToFile (actf): Append to a file the current contents of your clipboard
+
 ## Scripts
 Each subfolder under Scripts/ holds it's own windows CMD or PowerShell scripts.
 
