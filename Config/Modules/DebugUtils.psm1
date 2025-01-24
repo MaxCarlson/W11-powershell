@@ -111,8 +111,9 @@ function Write-Debug {
         $outputMessage = "[${callerFile}:${callerLine}] $Message"
     }
 
-    if($Channel -eq "Info")
+    if($Channel -eq "Info"){
         $Channel = "Information"
+    }
 
     $color = $colorMap[$Channel]
     if ($color) {
