@@ -65,6 +65,9 @@ foreach ($module in $modulesToLink) {
     }
 }
 
+# Setup any & all Executable scripts in bin/
+& "${PWSH_REPO}/Setup/SetupExecutables.ps1"
+
 return
 
 # Recursively get a list of SetupSchedule.ps1 files
