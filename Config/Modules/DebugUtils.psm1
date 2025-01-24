@@ -2,12 +2,23 @@
 #
 #Write-Host "Inside DebugUtils"
 #Write-Host "DebugProfile value: ${DebugProfile}"
+
+# Define channel colors
+$script:colorMap = @{
+    "Error"       = "Red"
+    "Warning"     = "Yellow"
+    "Verbose"     = "Gray"
+    "Information" = "Cyan"
+    "Debug"       = "Magenta"
+    "Success"     = "Green"
+}
+
 function Write-Debug {
     param (
         [string]$Message = "",
 
         [Parameter()]
-        [ValidateSet("Error", "Warning", "Verbose", "Information", "Debug")]
+        [ValidateSet("Error", "Warning", "Verbose", "Information", "Debug", "Success")]
         [string]$Channel = "Debug",
 
         [AllowNull()]
@@ -46,14 +57,6 @@ function Write-Debug {
         $outputMessage = "[${callerFile}:${callerLine}] $Message"
     }
 
-    # Define channel colors
-    $colorMap = @{
-        "Error"       = "Red"
-        "Warning"     = "Yellow"
-        "Verbose"     = "Gray"
-        "Information" = "Cyan"
-        "Debug"       = "Green"
-    }
 
     $color = $colorMap[$Channel]
     if ($color) {
@@ -113,9 +116,30 @@ function Debug-Action {
     }
 }
 
+function Write-TestAllColors {
+    $all_colors = @(
+        "Black", "Blue", "Cyan", "DarkBlue", "DarkCyan", "DarkGray", "DarkGreen",
+        "DarkMagenta", "DarkRed", "DarkYellow", "Gray", "Green", "Magenta", "Red",
+        "White", "Yellow"
+    )
+
+    Write-Host "Writing Each PWSH Color Available... "
+    foreach ($color in $all_colors) {
+        Write-Host "This is $color text" -ForegroundColor $color
+    }
+
+    Write-Host "`nWriting the current Write-Debug colors..."
+    foreach ($entry in $colorMap.GetEnumerator()){
+        $channel = $entry.Key
+        $color = $entry.Value
+        Write-Host "Channel: ${channel} → $color" -ForegroundColor $color
+    }
+}
+
+
 
 # Export the function for use outside the module
-Export-ModuleMember -Function Debug-Action, Write-Debug
+Export-ModuleMember -Function Debug-Action, Write-Debug, Write-TestAllColors 
 
 
 #Write-Host "DebugProfile value: ${DebugProfile}"
