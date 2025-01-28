@@ -2,7 +2,7 @@
 .SYNOPSIS
     Automates the git commit workflow with configurable options.
 .DESCRIPTION
-    - Runs `git status`
+    - Runs `git status` and colorizes output (M=yellow, A=green, ??=red)
     - Adds all changes (or a pattern if `-Add <pattern>` is provided)
     - Displays added files
     - Allows skipping the commit (`s` option)
@@ -32,6 +32,23 @@ function Get-DefaultCommitMessage {
     return "$timestamp - $user"
 }
 
+# Function to colorize Git status output
+function Show-GitStatus {
+    param([string[]]$StatusLines)
+
+    foreach ($line in $StatusLines) {
+        if ($line -match "^\s*M\s") {
+            Write-Host $line -ForegroundColor Yellow  # Modified files
+        } elseif ($line -match "^\s*A\s") {
+            Write-Host $line -ForegroundColor Green   # Added files
+        } elseif ($line -match "^\?\?") {
+            Write-Host $line -ForegroundColor Red     # Untracked files
+        } else {
+            Write-Host $line
+        }
+    }
+}
+
 # Run git status
 Write-Debug -Message "Checking Git Status" -Channel "Information"
 $gitStatus = git status --short
@@ -43,7 +60,7 @@ if ([string]::IsNullOrWhiteSpace($gitStatus)) {
 }
 
 Write-Debug -Message "Current Changes:" -Channel "Information"
-Write-Debug -Message "`n$gitStatus`n" -Channel "Information"
+Show-GitStatus -StatusLines $gitStatus
 
 # Run git add
 Write-Debug -Message "Adding Files: $Add" -Channel "Information"
@@ -60,7 +77,8 @@ if ([string]::IsNullOrWhiteSpace($stagedFiles)) {
     exit
 }
 
-Write-Debug -Message "Staged Files:`n$stagedFiles`n" -Channel "Information"
+Write-Debug -Message "Staged Files:" -Channel "Information"
+Show-GitStatus -StatusLines $stagedFiles
 
 # Confirmation step unless --Force is used
 if (-not $Force) {
