@@ -2,14 +2,19 @@
 # To use this profile rename it to Microsoft.PowerShell_profile.ps1 and move it to the above directory
 # cp ProfileCUCH.ps1 $HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1 
 
-# This is setup to ensure that we never load the $PROFILE twice..
+Write-Host "Profile script execution started."
+
 if (-not $global:ProfileLoaded) {
     $global:ProfileLoaded = $true
+    Write-Host "ProfileLoaded flag is being set."
 } else {
-   # TODO: Write-Debug or Write-Host here to show we tried to load the $PROFILE twice     
+   # TODO: Write-Debug or Write-Host here to show we tried to load the $PROFILE twice
+    Write-Host "Profile already loaded (skipped function definition section)."
     return
 }
 
+# Record the time we init the session
+$global:SessionStartTime = Get-Date
 # Define Script scope DebugProfile variable
 $global:DebugProfile = $true
 # Define base directory paths
@@ -17,6 +22,20 @@ $global:PWSH_REPO = "$env:USERPROFILE\Repos\W11-powershell"
 $global:PWSH_SCRIPT_DIR = "$PWSH_REPO\Scripts"
 $global:PWSH_BIN_DIR = "$PWSH_REPO\bin"
 
+if (-not $global:UserFunctionsBeforeModules ) {
+    $global:UserFunctionsBeforeModules = Get-Command -CommandType Function | Select-Object -ExpandProperty Name
+    $global:UserAliasesBeforeModules = Get-Alias | Select-Object -ExpandProperty Name
+}
+
+# Reload $PROFILE and work around the double load check..
+# Not entirely working..? Beware modjles and functions won't loas again
+# if they're already loaded.. 
+# TODO: perhaps unloaded everything somehow to setup
+# a reload functionm
+function global:Reload-Profile {
+    $global:ProfileLoaded = $false
+    . $PROFILE
+}
 
 # Debug function for printing. Still is in DebugUtils, but it's nice to be able to use it before loading that module
 function script:Write-Debug {
@@ -226,6 +245,8 @@ Log-Time "Finished Importing ChocolateyProfile Module"
 # Initialize Oh-My-Posh with the desired theme
 oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\jandedobbeleer.omp.json" | Invoke-Expression
 Log-Time "oh-my-posh init finished"
+
+Write-Debug -Message "Finished loading PROFILE" -Channel "Debug" -Condition $DebugProfile
 
 # ~~~~ NOTHING AFTER THIS LINE ~~~~
 

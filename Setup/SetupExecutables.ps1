@@ -38,7 +38,8 @@ $scriptNames = @(
     "LinkModule",
     "PermissionsHelper",
     "RemoveDeadLink",
-    "SetNotReadOnly"
+    "SetNotReadOnly",
+    "GitSync"
 )
 
 # Ensure bin directory exists

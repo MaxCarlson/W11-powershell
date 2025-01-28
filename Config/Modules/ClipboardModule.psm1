@@ -110,7 +110,7 @@ Set-Alias -Name gfc -Value Get-FileClipboard
     Specifies the full path of the text file where the clipboard content will be appended.
 
 .EXAMPLE
-    Add-ClipboardToTextFile -FilePath "C:\Users\Public\example.txt"
+    Add-ClipboardToFile -FilePath "C:\Users\Public\example.txt"
 
     Appends the current clipboard content to 'example.txt' while ensuring correct formatting.
 
@@ -128,7 +128,7 @@ Set-Alias -Name gfc -Value Get-FileClipboard
     Get-Clipboard
     Set-Clipboard
 #>
-function Add-ClipboardToTextFile {
+function Add-ClipboardToFile {
 
     [CmdletBinding()]
     param (
@@ -161,4 +161,4 @@ function Add-ClipboardToTextFile {
     }
 }
 
-Set-Alias -Name actf -Value Add-ClipboardToTextFile
+Set-Alias -Name actf -Value Add-ClipboardToFile

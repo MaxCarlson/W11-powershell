@@ -91,5 +91,42 @@ function Set-PathVariable {
     }
 }
 
-Export-ModuleMember -Function New-FileLink, Set-PathVariable
+function Get-PathVariables {
+    param(
+        [switch]$System,
+        [switch]$Both,
+        [switch]$Compressed=$false
+    )
+    function Write-Path {
+        param(
+            [string]$path,
+            [switch]$Compressed
+        )
+        if($Compressed){
+            $path
+        } else {
+            $path -split ";"
+        }
+    }
+
+    if ($Both){
+        $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+        Write-Debug -Message "Getting System & User PATH's..."
+        Write-Debug -Message "Getting User (${User}) PATH..." 
+        Write-Path $userPath -Compressed $Compressed
+        $System = $true
+    } 
+    if ($System){
+        Write-Debug -Message "Getting System PATH..."
+    } else {
+        Write-Debug -Message "Getting User (${User}) PATH..."
+    }
+    
+    $scope = if ($System) { "Machine" } else { "User" }
+    $currentPath = [System.Environment]::GetEnvironmentVariable("Path", $scope)
+    Write-Path $currentPath -Compressed $Compressed
+
+}
+
+Export-ModuleMember -Function New-FileLink, Set-PathVariable, Get-PathVariables
 
