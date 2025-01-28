@@ -4,9 +4,9 @@
 .DESCRIPTION
     - Runs `git status`
     - Adds all changes (or a pattern if `-Add <pattern>` is provided)
-    - Runs `git status` again
-    - Asks for confirmation unless `--Force` is used
-    - Prompts for a commit message (defaults to date/time/user if empty)
+    - Displays added files
+    - Allows skipping the commit (`s` option)
+    - Prompts for a commit message only if files are staged
     - Runs `git pull` and `git push`
 .PARAMETER Add
     A file pattern to add instead of adding everything.
@@ -34,21 +34,43 @@ function Get-DefaultCommitMessage {
 
 # Run git status
 Write-Debug -Message "Checking Git Status" -Channel "Information"
-git status
+$gitStatus = git status --short
+
+if ([string]::IsNullOrWhiteSpace($gitStatus)) {
+    Write-Debug -Message "No changes detected. Running git pull..." -Channel "Success"
+    git pull
+    exit
+}
+
+Write-Debug -Message "Current Changes:" -Channel "Information"
+Write-Debug -Message "`n$gitStatus`n" -Channel "Information"
 
 # Run git add
 Write-Debug -Message "Adding Files: $Add" -Channel "Information"
 git add $Add
 
-# Run git status again
-Write-Debug -Message "Checking Git Status Again" -Channel "Information"
-git status
+# Show staged changes
+Write-Debug -Message "Checking Staged Files" -Channel "Information"
+$stagedFiles = git diff --cached --name-status
+
+if ([string]::IsNullOrWhiteSpace($stagedFiles)) {
+    Write-Debug -Message "No files were staged. Skipping commit." -Channel "Warning"
+    Write-Debug -Message "Proceeding to git pull." -Channel "Information"
+    git pull
+    exit
+}
+
+Write-Debug -Message "Staged Files:`n$stagedFiles`n" -Channel "Information"
 
 # Confirmation step unless --Force is used
 if (-not $Force) {
-    $confirmation = Read-Host "Continue? (y/n)"
-    if ($confirmation -ne "y") {
-        Write-Debug -Message "Aborting Git Commit Process" -Channel "Error"
+    $confirmation = Read-Host "Continue? (y/n/s) (s = Skip commit, but continue with git pull)"
+    if ($confirmation -eq "n") {
+        Write-Debug -Message "Aborting Git Process" -Channel "Error"
+        exit
+    } elseif ($confirmation -eq "s") {
+        Write-Debug -Message "Skipping commit, proceeding to git pull." -Channel "Information"
+        git pull
         exit
     }
 }
@@ -70,6 +92,11 @@ git commit -m "$commitMessage"
 Write-Debug -Message "Pulling Latest Changes" -Channel "Information"
 git pull
 
-# Run git push
-Write-Debug -Message "Pushing Changes to Remote" -Channel "Success"
-git push
+# Check if there are new commits before pushing
+$newCommits = git log --branches --not --remotes --oneline
+if ([string]::IsNullOrWhiteSpace($newCommits)) {
+    Write-Debug -Message "No new commits to push. Process complete." -Channel "Success"
+} else {
+    Write-Debug -Message "Pushing Changes to Remote" -Channel "Success"
+    git push
+}
