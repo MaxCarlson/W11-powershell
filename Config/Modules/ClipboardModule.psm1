@@ -1,164 +1,215 @@
 # ClipboardModule.psm1
-$script:DEBUG_CLIPBOARD_MODULE=$false
-$script:DEBUG_MODULE=$DEBUG_CLIPBOARD_MODULE -and $DebugProfile
+
+$script:DEBUG_CLIPBOARD_MODULE = $false
+$script:DEBUG_MODULE = $DEBUG_CLIPBOARD_MODULE -and $DebugProfile
+
+# Ensure backup folder exists
+$backupFolder = "$HOME/logs/Clipboard"
+if (-not (Test-Path $backupFolder)) {
+    New-Item -ItemType Directory -Path $backupFolder | Out-Null
+}
 
 <#
 .SYNOPSIS
-    Replaces the contents of a file with the current clipboard data.
-
+    Prints the contents of the clipboard to the terminal.
 .DESCRIPTION
-    The Set-FileClipboard function takes the text data currently stored in the clipboard and
-    writes it to the specified file, replacing any existing content. It then outputs the new
-    contents of the file to the terminal.
+    Retrieves the current clipboard contents and prints them to the terminal.
+.EXAMPLE
+    Get-ClipboardContents
+#>
+function Get-ClipboardContents {
+    Write-Debug -Message "Getting Clipboard Contents:" -Channel "Information"
 
+    $clipboardContent = Get-Clipboard -Raw
+    if ([string]::IsNullOrWhiteSpace($clipboardContent)) {
+        Write-Debug -Message "Clipboard is empty." -Channel "Warning"
+    } else {
+        Write-Host $clipboardContent
+        Write-Debug -Message "Clipboard Contents:`n$clipboardContent" -Channel "Success"
+    }
+}
+Set-Alias -Name gcb -Value Get-ClipboardContents
+
+<#
+.SYNOPSIS
+    Sets the clipboard to a given string or file contents.
+.DESCRIPTION
+    Accepts either a string input or a file path and sets the clipboard content accordingly.
+.PARAMETER InputData
+    A string or file path to set as the clipboard content.
+.EXAMPLE
+    Set-ClipboardContent -InputData "Hello, World!"
+.EXAMPLE
+    Set-ClipboardContent -InputData "C:\path\to\file.txt"
+#>
+function Set-ClipboardContent {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$InputData
+    )
+
+    # Initialize clipboard data variable
+    $ClipboardData = $null
+
+    # Handle input source (File or String)
+    if (Test-Path $InputData -PathType Leaf) {
+        Write-Debug -Message "Reading file: $InputData" -Channel "Information"
+        $ClipboardData = Get-Content -Raw -Path $InputData
+    } else {
+        Write-Debug -Message "Processing text input." -Channel "Information"
+        $ClipboardData = $InputData
+    }
+
+    if ($null -eq $InputData -or [string]::IsNullOrWhiteSpace($InputData)) {
+        Write-Debug -Message "Error: Input content is empty, skipping operation." -Channel "Error"
+        return
+    }
+
+    # Validate clipboard content
+    if ($null -eq $ClipboardData -or [string]::IsNullOrWhiteSpace($ClipboardData)) {
+        Write-Debug -Message "Error: Clipboard content is empty, skipping operation." -Channel "Error"
+        return
+    }
+
+    # Normalize text formatting
+    $ClipboardData = $ClipboardData -replace "`r", ""  # Remove carriage returns
+    $ClipboardData = $ClipboardData.Trim()             # Remove leading/trailing spaces
+
+    # Try setting clipboard content
+    try {
+        Set-Clipboard -Value $ClipboardData
+        Start-Sleep -Milliseconds 100  # Ensure clipboard registers new content
+        Write-Debug -Message "Clipboard successfully updated." -Channel "Success"
+    } catch {
+        Write-Debug -Message "Set-Clipboard failed, falling back to Windows API." -Channel "Warning"
+        Add-Type -TypeDefinition @"
+            using System;
+            using System.Windows.Forms;
+            public class ClipboardHelper {
+                public static void SetText(string text) {
+                    if (!String.IsNullOrEmpty(text)) {
+                        Clipboard.SetText(text);
+                    }
+                }
+            }
+"@ -ReferencedAssemblies System.Windows.Forms
+        [ClipboardHelper]::SetText($ClipboardData)
+    }
+
+    # Confirm clipboard content after setting
+    $VerifyClipboard = Get-Clipboard -Raw
+    if ($VerifyClipboard -eq $ClipboardData) {
+        Write-Debug -Message "Clipboard verification successful." -Channel "Success"
+    } else {
+        Write-Debug -Message "Clipboard verification failed, unexpected content stored." -Channel "Warning"
+    }
+}
+Set-Alias -Name scb -Value Set-ClipboardContent
+
+<#
+.SYNOPSIS
+    Overwrites a file with the current clipboard content, creating a backup.
+.DESCRIPTION
+    If clipboard contains data, replaces file content while backing up the original to ~/logs/Clipboard/.
 .PARAMETER Path
-    The full path to the file that should be overwritten with clipboard contents.
-
+    The file to overwrite with clipboard contents.
 .EXAMPLE
     Set-FileClipboard -Path "C:\Users\Example\output.txt"
-
-    Replaces the contents of "output.txt" with the clipboard's text data and displays the new file contents.
-
-.EXAMPLE
-    sfc "C:\Users\Example\notes.txt"
-
-    Uses the alias "sfc" to replace "notes.txt" with clipboard data.
-
-.NOTES
-    - Ensure you want to replace the entire contents of the file before running this function.
-    - Only works with text-based files.
-    - If the clipboard is empty, the file will be overwritten with an empty string.
-
-.LINK
-    Set-FileClipboard
 #>
 function Set-FileClipboard {
-    param (
+    param(
         [Parameter(Mandatory=$true)]
         [string]$Path
     )
 
     if (-Not (Test-Path $Path -PathType Leaf)) {
-        Write-Host "Error: File '$Path' does not exist." -ForegroundColor Red
+        Write-Debug -Message "Error: File '$Path' does not exist." -Channel "Error"
         return
     }
 
-    $Content = Get-Content -Raw -Path $Path
-    Write-Debug -Message $Content -Channel "Information" -Condition $DEBUG_MODULE # Display file contents
-    $Content | Set-Clipboard
-    Write-Debug -Message "Copied to clipboard." -Channel "Success"
+    $clipboardContent = Get-Clipboard -Raw
+    if ([string]::IsNullOrWhiteSpace($clipboardContent)) {
+        Write-Debug -Message "Clipboard is empty, no changes made." -Channel "Warning"
+        return
+    }
+
+    # Get file info before modification
+    $oldSize = (Get-Item $Path).Length / 1KB
+    $oldLines = (Get-Content -Path $Path).Count
+
+    # Create backup before overwriting
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $backupPath = "$backupFolder/$(Split-Path -Leaf $Path)_$timestamp"
+    Copy-Item -Path $Path -Destination $backupPath -Force
+    Write-Debug -Message "Backed up '$Path' to '$backupPath'" -Channel "Information"
+
+    # Overwrite file with clipboard contents
+    $clipboardContent | Set-Content -Path $Path
+
+    # Get file info after modification
+    $newSize = (Get-Item $Path).Length / 1KB
+    $newLines = (Get-Content -Path $Path).Count
+
+    Write-Debug -Message @"
+File Info: (Length: $oldLines lines, Size: $([math]::Round($oldSize,2)) KB)
+Overwriting file '$Path' with contents of clipboard...
+File Info After Overwrite: (Length: $newLines lines, Size: $([math]::Round($newSize,2)) KB)
+"@ -Channel "Success"
 }
 Set-Alias -Name sfc -Value Set-FileClipboard
 
 <#
 .SYNOPSIS
-    Retrieves the contents of a file, displays them, and copies them to the clipboard.
-
+    Appends clipboard content to a file.
 .DESCRIPTION
-    The Get-FileClipboard function reads the contents of a specified file, outputs them to the terminal,
-    and copies them to the clipboard. This allows for quick copying and pasting of file contents
-    without modifying the file.
-
-.PARAMETER Path
-    The full path to the file whose contents should be copied.
-
-.EXAMPLE
-    Get-FileClipboard -Path "C:\Users\Example\document.txt"
-
-    Retrieves the contents of "document.txt", displays them in the terminal, and copies them to the clipboard.
-
-.EXAMPLE
-    gfc "C:\Users\Example\script.ps1"
-
-    Uses the alias "gfc" to copy the contents of "script.ps1" to the clipboard.
-
-.NOTES
-    - This function only works with text-based files.
-    - Ensure that the file exists before running this function.
-
-.LINK
-    Get-FileClipboard
-#>
-function Get-FileClipboard {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$Path
-    )
-
-    if (-Not (Test-Path $Path -PathType Leaf)) {
-        Write-Debug -Message "Error: File '$Path' does not exist." -Channel "Error" -Condition $true
-        return
-    }
-
-    $ClipboardContent = Get-Clipboard
-    $ClipboardContent | Set-Content -Path $Path
-    Write-Debug -Message $ClipboardContent -Channel "Information" -Condition $DEBUG_MODULE  # Display new contents
-    Write-Debug "Replaced contents of '$Path' with clipboard data." -Channel "Success" -Condition $true
-}
-Set-Alias -Name gfc -Value Get-FileClipboard
-
-<#
-.SYNOPSIS
-    Appends the current clipboard content to the specified text file.
-
-.DESCRIPTION
-    This function retrieves the text data currently stored in the clipboard and appends it to a specified file. 
-    It ensures that clipboard formatting is preserved by writing the content to a temporary file before appending.
-    If the target file does not end with a newline, a newline is added to separate the new content properly.
-
+    If clipboard contains data, appends it to the target file, ensuring proper formatting.
 .PARAMETER FilePath
-    Specifies the full path of the text file where the clipboard content will be appended.
-
+    The file to append clipboard contents to.
 .EXAMPLE
-    Add-ClipboardToFile -FilePath "C:\Users\Public\example.txt"
-
-    Appends the current clipboard content to 'example.txt' while ensuring correct formatting.
-
-.EXAMPLE
-    actf "C:\Users\Public\log.txt"
-
-    Uses the alias "actf" to append clipboard content to 'log.txt'.
-
-.NOTES
-    - This function is intended for text-based files only.
-    - If the clipboard is empty or contains only whitespace, no changes will be made.
-    - The function ensures that the existing content of the file is not overwritten, only appended.
-
-.LINK
-    Get-Clipboard
-    Set-Clipboard
+    Add-ClipboardToFile -FilePath "C:\Users\Example\log.txt"
 #>
 function Add-ClipboardToFile {
-
-    [CmdletBinding()]
-    param (
+    param(
         [Parameter(Mandatory=$true)]
         [string]$FilePath
     )
 
-    $tempFilePath = [System.IO.Path]::GetTempFileName()
-
-    try {
-        $clipboardContent = Get-Clipboard
-        if (-not [string]::IsNullOrWhiteSpace($clipboardContent)) {
-            # Write clipboard content to a temporary file
-            $clipboardContent | Set-Content -Path $tempFilePath
-
-            # Append a newline to the target file if it doesn't end with one
-            $fileContent = Get-Content -Path $FilePath -Raw
-            if (-not [string]::IsNullOrWhiteSpace($fileContent) -and -not $fileContent.EndsWith("`n")) {
-                Add-Content -Path $FilePath -Value "`n"
-            }
-
-            # Append the temporary file content to the target file
-            Get-Content -Path $tempFilePath | Add-Content -Path $FilePath
-        } else {
-            Write-Warning "Clipboard is empty or contains only whitespace."
-        }
-    } finally {
-        # Clean up temporary file
-        Remove-Item -Path $tempFilePath -Force
+    $clipboardContent = Get-Clipboard -Raw
+    if ([string]::IsNullOrWhiteSpace($clipboardContent)) {
+        Write-Debug -Message "Clipboard is empty or contains only whitespace. No changes made." -Channel "Warning"
+        return
     }
-}
 
+    # Ensure file exists
+    if (-Not (Test-Path $FilePath -PathType Leaf)) {
+        Write-Debug -Message "Creating new file: $FilePath" -Channel "Information"
+        New-Item -Path $FilePath -ItemType File | Out-Null
+    }
+
+    # Get file info before modification
+    $oldContent = Get-Content -Path $FilePath -Raw
+    $oldLines = ($oldContent -split "`n").Count
+    $oldSize = (Get-Item $FilePath).Length / 1KB
+
+    # Ensure newline separation
+    if (-not [string]::IsNullOrWhiteSpace($oldContent) -and -not $oldContent.EndsWith("`n")) {
+        "`n" | Add-Content -Path $FilePath
+    }
+
+    # Append clipboard contents
+    $clipboardContent | Add-Content -Path $FilePath
+
+    # Get file info after modification
+    $newContent = Get-Content -Path $FilePath -Raw
+    $newLines = ($newContent -split "`n").Count
+    $newSize = (Get-Item $FilePath).Length / 1KB
+
+    Write-Debug -Message @"
+Appending clipboard to end of '$FilePath'
+(Old EOF line: $oldLines, New EOF line: $newLines, Size Before: $([math]::Round($oldSize,2)) KB, Size After: $([math]::Round($newSize,2)) KB)
+"@ -Channel "Success"
+}
 Set-Alias -Name actf -Value Add-ClipboardToFile
+
+# Export functions and aliases
+Export-ModuleMember -Function Get-ClipboardContents, Set-ClipboardContent, Set-FileClipboard, Add-ClipboardToFile -Alias gcb, scb, sfc, actf
