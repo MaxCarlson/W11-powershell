@@ -1,6 +1,57 @@
 # Profile for Current User Current Host located at $HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
 # To use this profile rename it to Microsoft.PowerShell_profile.ps1 and move it to the above directory
 # cp ProfileCUCH.ps1 $HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1 
+#
+# ~~~~~~~~~~~~~
+#
+# Potential Themes
+# To Show All Themes run Powershell Module:
+#
+# `Get-PoshThemes`
+#
+# ~~~~~~~~~~~~~
+#
+# Apply a new theme to test temporarily
+# oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\paradox.omp.json" | Invoke-Expression
+#
+# Where paradox is the theme name to try
+#
+# ~~~~~~~~~~~~~
+#
+# To edit a theme:
+# nvim "$env:POSH_THEMES_PATH\theme_name.omp.json"
+#
+# ~~~~~~~~~~~~~
+#
+# atomic
+# atomicBit
+# clean-detailed
+# cloud_context
+# craver
+# half-life
+# huvix
+# if_tea
+# iterm2
+# jblab_2021
+# json
+# kali
+# nu4a
+# powerlevel10k_modern
+# powerlevel10_rainbow
+# powerline
+# quick-term
+# robbyrussell
+# slim
+# space
+# takuya
+# tokyo
+#
+#
+#
+
+$env:EDITOR = "nvim"
+
+$script:ThemeName = "$env:POSH_THEMES_PATH\atomic.omp.json"
 
 Write-Host "Profile script execution started."
 
@@ -12,6 +63,17 @@ if (-not $global:ProfileLoaded) {
     Write-Host "Profile already loaded (skipped function definition section)."
     return
 }
+
+# 🚀 Load All Dynamic Profile Scripts
+$global:DynamicProfileDir = "$HOME\Repos\W11-powershell\dynamic\start_profile"
+
+if (Test-Path $DynamicProfileDir) {
+    Get-ChildItem -Path $DynamicProfileDir -Filter "*.ps1" | ForEach-Object {
+        Write-Output "🔹 Loading: $_"
+        . $_.FullName
+    }
+}
+
 
 # Record the time we init the session
 $global:SessionStartTime = Get-Date
@@ -243,7 +305,7 @@ Log-Time "Finished Importing ChocolateyProfile Module"
 #
 #
 # Initialize Oh-My-Posh with the desired theme
-oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\jandedobbeleer.omp.json" | Invoke-Expression
+oh-my-posh init pwsh --config "$ThemeName" | Invoke-Expression
 Log-Time "oh-my-posh init finished"
 
 Write-Debug -Message "Finished loading PROFILE" -Channel "Debug" -Condition $DebugProfile

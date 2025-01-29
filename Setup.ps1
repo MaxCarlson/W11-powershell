@@ -6,6 +6,7 @@
 #gh repo clone W11-powershell
 # Example Setup Script with Fixes
 
+& ".\Setup\CreateDynamicGlobalVariables.ps1"
 .\Scripts\SetupScripts\StartSSHAgent.ps1
 .\Scripts\SetupScripts\ProgramBackup.ps1 -Setup -BackupFrequency Daily -UpdateFrequency Daily
 
