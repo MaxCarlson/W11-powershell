@@ -5,10 +5,33 @@
 #
 #gh repo clone W11-powershell
 # Example Setup Script with Fixes
+#
 
+# Import DebugUtils module for logging and structured debugging
+$DebugUtilsPath = Join-Path -Path $PSScriptRoot -ChildPath "Config/Modules/DebugUtils.psm1"
+if (Test-Path $DebugUtilsPath) {
+    Import-Module $DebugUtilsPath -Force
+    Write-Debug -Message "✅ DebugUtils.psm1 imported successfully." -Channel "Success"
+} else {
+    Write-Host "⚠️ DebugUtils module not found at: $DebugUtilsPath" -ForegroundColor Yellow
+}
+
+# Code above must be on top, everything else goes below
+
+# Ensure PowerShell profile is linked
+Write-Debug -Message "🔄 Ensuring PowerShell profile is linked..." -Channel "Information"
+& "$PSScriptRoot\Profiles\HardLinkProfile.ps1" -Replace "a"
+
+# Create generated files for global variables
 & ".\Setup\CreateDynamicGlobalVariables.ps1"
-.\Scripts\SetupScripts\StartSSHAgent.ps1
-.\Scripts\SetupScripts\ProgramBackup.ps1 -Setup -BackupFrequency Daily -UpdateFrequency Daily
+
+# Setup ssh stuff (TODO: Make sure this handles setting up agents and
+# adding kes!!!)
+& ".\Scripts\SetupScripts\StartSSHAgent.ps1"
+
+# Setup the Program Backup script - backs up the programs installed by winget/choco/scoop/etc..
+# TODO: Make sure that these backups aren't tracked by git
+& ".\Scripts\SetupScripts\ProgramBackup.ps1" -Setup -BackupFrequency Daily -UpdateFrequency Daily
 
 # Define the modules to link
 $modulesToLink = @(
@@ -67,7 +90,7 @@ foreach ($module in $modulesToLink) {
 }
 
 # Setup any & all Executable scripts in bin/
-& "${PWSH_REPO}/Setup/SetupExecutables.ps1"
+& "${PWSH_REPO}\Setup\SetupExecutables.ps1"
 
 return
 

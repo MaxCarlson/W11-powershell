@@ -79,10 +79,12 @@ if (Test-Path $DynamicProfileDir) {
 $global:SessionStartTime = Get-Date
 # Define Script scope DebugProfile variable
 $global:DebugProfile = $true
+
+# These should already be defined by the generated global variables
 # Define base directory paths
-$global:PWSH_REPO = "$env:USERPROFILE\Repos\W11-powershell"
-$global:PWSH_SCRIPT_DIR = "$PWSH_REPO\Scripts"
-$global:PWSH_BIN_DIR = "$PWSH_REPO\bin"
+#$global:PWSH_REPO = "$env:USERPROFILE\Repos\W11-powershell"
+#$global:PWSH_SCRIPT_DIR = "$PWSH_REPO\Scripts"
+#$global:PWSH_BIN_DIR = "$PWSH_REPO\bin"
 
 if (-not $global:UserFunctionsBeforeModules ) {
     $global:UserFunctionsBeforeModules = Get-Command -CommandType Function | Select-Object -ExpandProperty Name
@@ -203,10 +205,6 @@ Log-Time "Starting PROFILE Logging"
 #    $Global:HOME = $Env:USERPROFILE 
 #}
 
-$Global:ProfileRepoPath = "${HOME}\Repos\W11-powershell"
-$Global:ProfilePath = "${ProfileRepoPath}\Profiles"
-$Global:ProfileModulesPath = Join-Path $Global:ProfileRepoPath "Config\Modules"
-
 # Variables Added to Profile from Add-Variable.ps1 script. TODO: Aforementioned Script needs to be adjusted to the current setup
 # ~~~~   Global Variables   ~~~~ #
 $global:OBSIDIAN = 'C:\Users\mcarls\Documents\Obsidian-Vault\'
@@ -216,11 +214,11 @@ $global:SCRIPTS = 'C:\Projects\W11-powershell\'
 Log-Time "Global variables set"
 
 # Add custom modules path to PSModulePath
-$env:PSModulePath += ";`"$Global:ProfileModulesPath`""
+$env:PSModulePath += ";`"$Global:PWSH_MODULES_PATH`""
 # Define a prioritized order for some modules (script-scoped)
 $Script:OrderedModules = @() #, "Other-Modules", ..., )
 
-#Import-Module (Join-Path $ProfileModulesPath Module-Loader.psm1)
+#Import-Module (Join-Path $PWSH_MODULES_PATH Module-Loader.psm1)
 
 
 #$script:job = Get-Job -Name "PersistentModuleLoader" -ErrorAction SilentlyContinue
@@ -234,8 +232,8 @@ function script:Start-PersistentSession {
     if (-not $ExistingProcess) {
         # Start the persistent process
         Start-Process -FilePath "pwsh.exe" -ArgumentList "-NoExit", "-Command & {
-            Import-Module (Join-Path $ProfileModulesPath 'DebugUtils.psm1')
-            Import-Module (Join-Path $ProfileModulesPath 'ModuleLoader.psm1')
+            Import-Module (Join-Path $PWSH_MODULES_PATH 'DebugUtils.psm1')
+            Import-Module (Join-Path $PWSH_MODULES_PATH 'ModuleLoader.psm1')
 
             while ($true) { Start-Sleep -Seconds 60 }
         }" -WindowStyle Hidden
@@ -262,8 +260,8 @@ function global:Kill-PersistentSession {
 #
 #Start-PersistentSession
 
-Import-Module (Join-Path $ProfileModulesPath 'DebugUtils.psm1')
-Import-Module (Join-Path $ProfileModulesPath 'ModuleLoader.psm1')
+Import-Module (Join-Path $PWSH_MODULES_PATH 'DebugUtils.psm1')
+Import-Module (Join-Path $PWSH_MODULES_PATH 'ModuleLoader.psm1')
 
 #Start-AtuinHistory
 
