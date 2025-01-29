@@ -10,6 +10,21 @@ $global:PWSH_BIN_DIR = Join-Path $PWSH_REPO "bin"
 $global:PWSH_PROFILE_PATH = Join-Path $PWSH_REPO "Profiles"
 $global:PWSH_MODULES_PATH = Join-Path $PWSH_REPO "Config\Modules"
 
+
+# Ensure $DynamicProfileDir is correctly set
+$DynamicProfileDir = Join-Path -Path $PWSH_REPO -ChildPath "dynamic/start_profile"
+Write-Output "Debug: DynamicProfileDir = $DynamicProfileDir"
+
+# Ensure $DynamicVariablesFile is correctly set
+$DynamicVariablesFile = Join-Path -Path $DynamicProfileDir -ChildPath "dynamic_global_variables.ps1"
+Write-Output "Debug: DynamicVariablesFile = $DynamicVariablesFile"
+
+# Ensure the dynamic profile directory exists
+if (!(Test-Path $DynamicProfileDir)) {
+    Write-Output "🔹 Creating missing directory: $DynamicProfileDir"
+    New-Item -ItemType Directory -Path $DynamicProfileDir -Force | Out-Null
+}
+
 # Now that the variables are defined, write them to the dynamic file
 $GlobalVariables = @"
 # 🚀 Dynamically Generated Global Variables

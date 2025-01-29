@@ -7,6 +7,10 @@
 # Example Setup Script with Fixes
 #
 
+# Ensure this script is run from the root of W11-powershell
+# Ensure PWSH_REPO is correctly set to the W11-powershell root
+$global:PWSH_REPO = $PSScriptRoot  # PSScriptRoot is always where Setup.ps1 is located
+
 # Import DebugUtils module for logging and structured debugging
 $DebugUtilsPath = Join-Path -Path $PSScriptRoot -ChildPath "Config/Modules/DebugUtils.psm1"
 if (Test-Path $DebugUtilsPath) {
@@ -23,7 +27,7 @@ Write-Debug -Message "🔄 Ensuring PowerShell profile is linked..." -Channel "I
 & "$PSScriptRoot\Profiles\HardLinkProfile.ps1" -Replace "a"
 
 # Create generated files for global variables
-& ".\Setup\CreateDynamicGlobalVariables.ps1"
+& "$PSScriptRoot\Setup\CreateDynamicGlobalVariables.ps1"
 
 # Setup ssh stuff (TODO: Make sure this handles setting up agents and
 # adding kes!!!)
