@@ -10,6 +10,7 @@ function cdd { Set-Location "C:\Users\mcarls\Documents\" }
 function cdobs { Set-Location "C:\Users\mcarls\Documents\Obsidian-Vault\" }
 function cdpo { Set-Location "D:\Pictures\Saved\" }
 function cdsrc { Set-Location "$HOME\Repos\" }
+function cds { Set-Location "$HOME\Repos\scripts\" }
 function cdre { cdsrc }
 function cdpwsh { Set-Location "$HOME\Repos\W11-powershell\" }
 function cdps { cdpwsh }
