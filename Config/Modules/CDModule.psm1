@@ -93,14 +93,6 @@ if (-not (Get-Command z -ErrorAction SilentlyContinue)) {
 #Set-Alias -Name z -Value z
 
 
-# Custom quick navigation aliases for frequently used directories
-function cdd { cd "C:\Users\mcarls\Documents\" }
-function cdobs { cd "C:\Users\mcarls\Documents\Obsidian-Vault\" }
-function cdpo { cd "D:\Pictures\Saved\" }
-function cdsrc { cd "$HOME\Repos\" }
-function cdre { cdsrc }
-function cdpwsh { cd "$HOME\Repos\W11-powershell\" }
-function cdps { cdpwsh }
 
 # Function to navigate to the nth previous directory
 #function cd {
