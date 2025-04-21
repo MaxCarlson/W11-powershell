@@ -241,9 +241,12 @@ Log-Time "Finished Importing ChocolateyProfile Module"
 
 # ~~~~ END OF PROFILE ~~~~
 #
+# ~~~~ List of oh-my-posh Themes I like or have used
+# jandedobbeleer.omp.json   - Old Slice theme
+# atomic.omp.json           - Laptop theme 01/2025, now Slice theme as well
 #
 # Initialize Oh-My-Posh with the desired theme
-oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\jandedobbeleer.omp.json" | Invoke-Expression
+oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\atomic.omp.json" | Invoke-Expression
 Log-Time "oh-my-posh init finished"
 
 Write-Debug -Message "Finished loading PROFILE" -Channel "Debug" -Condition $DebugProfile
