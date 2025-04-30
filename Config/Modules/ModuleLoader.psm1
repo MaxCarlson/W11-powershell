@@ -61,25 +61,35 @@ function script:Initialize-Module {
         [string]$ModuleName,
         [string]$ModulePath
     )
+
+    # snapshot before
     $beforeFns = (Get-Command -CommandType Function).Name
-    $beforeA  = (Get-Alias).Name
+    $beforeA   = (Get-Alias).Name
+
+    # prepare result object with new LoadTimeMs field
     $result = [PSCustomObject]@{
         ModuleName = $ModuleName
         Status     = 'Failed'
         Functions  = 0
         Aliases    = 0
+        LoadTimeMs = 0.0
         Error      = $null
     }
 
+    # time the import
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         Write-Debug "Importing ${ModuleName}..." -Channel Verbose -Condition $global:DebugProfile
         Import-Module -Name $ModulePath -ErrorAction Stop -Global
 
+        # snapshot after
         $afterFns = (Get-Command -CommandType Function).Name
         $afterA   = (Get-Alias).Name
+
         $result.Status    = 'Success'
         $result.Functions = (Compare-Object -ReferenceObject $beforeFns -DifferenceObject $afterFns -PassThru).Count
-        $result.Aliases   = (Compare-Object -ReferenceObject $beforeA  -DifferenceObject $afterA  -PassThru).Count
+        $result.Aliases   = (Compare-Object -ReferenceObject $beforeA   -DifferenceObject $afterA   -PassThru).Count
+
         Write-Debug "Imported ${ModuleName}: $($result.Functions) fn, $($result.Aliases) alias" `
             -Channel Information -Condition $global:DebugProfile
     }
@@ -93,6 +103,8 @@ function script:Initialize-Module {
         }
     }
     finally {
+        $timer.Stop()
+        $result.LoadTimeMs = [math]::Round($timer.Elapsed.TotalMilliseconds, 2)
         $script:ModuleLoadResults.Add($result)
     }
 }
@@ -105,26 +117,26 @@ function Show-ModuleLoaderSummary {
 
     if ($script:ModuleLoadResults.Count -eq 0) {
         Write-Host "  No module loading results found." -ForegroundColor Yellow
+        return
     }
-    else {
-        $succ = $script:ModuleLoadResults | Where-Object Status -EQ 'Success' | Sort-Object ModuleName
-        $fail = $script:ModuleLoadResults | Where-Object Status -EQ 'Failed'  | Sort-Object ModuleName
 
-        if ($succ.Count) {
-            Write-Host "`n  Modules Successfully Loaded:" -ForegroundColor Green
-            foreach ($m in $succ) {
-                Write-Host "   - $($m.ModuleName): $($m.Functions) fn, $($m.Aliases) alias"
-            }
+    $succ = $script:ModuleLoadResults | Where-Object Status -EQ 'Success' | Sort-Object ModuleName
+    $fail = $script:ModuleLoadResults | Where-Object Status -EQ 'Failed'  | Sort-Object ModuleName
+
+    if ($succ.Count) {
+        Write-Host "`n  Modules Successfully Loaded:" -ForegroundColor Green
+        foreach ($m in $succ) {
+            Write-Host "   - $($m.ModuleName): $($m.Functions) fn, $($m.Aliases) alias – $($m.LoadTimeMs) ms"
         }
-        if ($fail.Count) {
-            Write-Host "`n  Modules Failed to Load:" -ForegroundColor Red
-            foreach ($m in $fail) {
-                $hint = ""
-                if ($global:DebugProfile -and $m.Error) {
-                    $hint = " (Error: $($m.Error.Split([char]10)[0]))"
-                }
-                Write-Host "   - $($m.ModuleName)$hint"
+    }
+    if ($fail.Count) {
+        Write-Host "`n  Modules Failed to Load:" -ForegroundColor Red
+        foreach ($m in $fail) {
+            $hint = ""
+            if ($global:DebugProfile -and $m.Error) {
+                $hint = " (Error: $($m.Error.Split([char]10)[0]))"
             }
+            Write-Host "   - $($m.ModuleName)$hint"
         }
     }
 
@@ -141,15 +153,17 @@ if (-not (Test-Path $path -PathType Container)) {
 }
 else {
     $all = Get-ChildItem -Path $path -Filter '*.psm1' -ErrorAction Stop |
-           Where-Object BaseName -NotIn @($current,'DebugUtils')
+           Where-Object BaseName -NotIn @($current, 'DebugUtils')
+
     if ($Global:OrderedModules -is [array] -and $Global:OrderedModules.Count) {
-        $first = $all | Where-Object { $Global:OrderedModules -contains $_.BaseName }
-        $rest  = $all | Where-Object { $Global:OrderedModules -notcontains $_.BaseName }
+        $first  = $all | Where-Object { $Global:OrderedModules -contains $_.BaseName }
+        $rest   = $all | Where-Object { $Global:OrderedModules -notcontains $_.BaseName }
         $toLoad = $first + ($rest | Sort-Object BaseName)
     }
     else {
         $toLoad = $all | Sort-Object BaseName
     }
+
     foreach ($mod in $toLoad) {
         Initialize-Module -ModuleName $mod.BaseName -ModulePath $mod.FullName
     }
