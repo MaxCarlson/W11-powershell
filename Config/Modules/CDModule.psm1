@@ -9,6 +9,9 @@ if (-not $global:ModuleImportedCDModule) {
 function cdd { Set-Location "C:\Users\mcarls\Documents\" }
 function cdobs { Set-Location "C:\Users\mcarls\Documents\Obsidian-Vault\" }
 function cdpo { Set-Location "D:\Pictures\Saved\" }
+function cdpon { Set-Location "D:\Pictures\Saved\tmpvids" }
+function cdpoi { Set-Location "D:\Pictures\Saved\Pics\" }
+function cdpoh { Set-Location "D:\Pictures\Saved\Pics\hentaiImages" }
 function cdsrc { Set-Location "$HOME\Repos\" }
 function cds { Set-Location "$HOME\Repos\scripts\" }
 function cdre { cdsrc }

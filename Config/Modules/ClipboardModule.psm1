@@ -209,7 +209,13 @@ Appending clipboard to end of '$FilePath'
 (Old EOF line: $oldLines, New EOF line: $newLines, Size Before: $([math]::Round($oldSize,2)) KB, Size After: $([math]::Round($newSize,2)) KB)
 "@ -Channel "Success"
 }
-Set-Alias -Name actf -Value Add-ClipboardToFile
 
-# Export functions and aliases
-Export-ModuleMember -Function Get-ClipboardContents, Set-ClipboardContent, Set-FileClipboard, Add-ClipboardToFile -Alias gcb, scb, sfc, actf
+Set-Alias -Name gcb -Value Get-ClipboardContents
+Set-Alias -Name c2c -Value Set-ClipboardContent
+Set-Alias -Name rwc -Value Set-FileClipboard
+Set-Alias -Name apc -Value Add-ClipboardToFile
+Set-Alias -Name otc -Value Invoke-CommandToClipboard
+
+Export-ModuleMember `
+  -Function Get-ClipboardContents, Set-ClipboardContent, Set-FileClipboard, Add-ClipboardToFile, Invoke-CommandToClipboard `
+  -Alias gcb, c2c, rwc, apc, otc

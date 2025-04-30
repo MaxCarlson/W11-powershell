@@ -1,5 +1,9 @@
 # Git Functions & Aliases
 
+# Capture existing aliases before we define our own
+$preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
+
+
 # Define the function to checkout the develop branch
 function gchD {
     git checkout develop
@@ -18,7 +22,9 @@ function gchm {
     }
 }
 
-# Git Aliases with new prefixes
+# Simple aliases that don't need to take parameters
+Set-Alias -Name g -Value "git"
+Set-Alias -Name ga  -Value "git add"
 
 ## Define the function to describe the latest tag
 function gdct {
@@ -26,9 +32,6 @@ function gdct {
 }
 
 
-# Simple aliases that don't need to take parameters
-Set-Alias -Name g -Value "git"
-Set-Alias -Name ga  -Value "git add"
 function gaa  { git add --all }
 function gp { git push }
 function gam  { git am }
@@ -112,10 +115,16 @@ function gcmtcssM { git commit --gpg-sign --signoff --message @args }
 # List of functions to exclude from being exported
 #$excludeFunctions = @("PrivateFunction1", "PrivateFunction2")
 
-# Dynamically export all functions except those in the exclude list
-Get-Command -CommandType Function -Scope Script | Where-Object {
-    $excludeFunctions -notcontains $_.Name
-} | ForEach-Object {
-    Export-ModuleMember -Function $_.Name
-}
+# Exports for Functions and Aliases handled automatically below
+# All functions & aliases defined within this file will be exported
+# If something needs to not be exported, we'll have to slightly modify the format
+$newFunctions = @(Get-Command -CommandType Function | Where-Object { $_.ScriptBlock.File -eq $PSCommandPath })
+Export-ModuleMember -Function $newFunctions.Name
+
+
+# Get aliases that were defined in this module
+$newAliases = Get-Alias | Where-Object { $preExistingAliases -notcontains $_.Name }
+
+# Export all alises defined within this file 
+Export-ModuleMember -Alias $newAliases.Name
 
