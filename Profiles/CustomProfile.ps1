@@ -118,29 +118,6 @@ function Log-Time {
 # Log the start time for oh-my-posh
 Log-Time "Starting PROFILE Logging"
 
-
-#$zoxideInit = (&zoxide init pwsh) -join "`n"
-#Invoke-Expression $zoxideInit
-#$zoxideInit = $false#(&zoxide init powershell) -join "`n"
-#if ($zoxideInit) {
-#    Invoke-Expression $zoxideInit
-#    Write-Host "zoxide initialized successfully" -ForegroundColor Green
-#} else {
-#    Write-Host "zoxide initialization failed" -ForegroundColor Red
-#}
-#
-#zoxide init powershell
-#Invoke-Expression (&zoxide init powershell)
-#Invoke-Expression (&zoxide init powershell --no-cmd | Out-String)
-#
-#Log-Time "Zoxide init finished"
-#
-## Global variables for paths
-#if (-not $HOME) { 
-#    if ($DebugProfile) {Write-Host "Variable \$HOME not set. Setting now."}
-#    $Global:HOME = $Env:USERPROFILE 
-#}
-
 $Global:ProfileRepoPath = "${HOME}\Repos\W11-powershell"
 $Global:ProfilePath = "${ProfileRepoPath}\Profiles"
 $Global:ProfileModulesPath = Join-Path $Global:ProfileRepoPath "Config\Modules"
@@ -158,51 +135,9 @@ $env:PSModulePath += ";`"$Global:ProfileModulesPath`""
 # Define a prioritized order for some modules (script-scoped)
 $Script:OrderedModules = @() #, "Other-Modules", ..., )
 
-#Import-Module (Join-Path $ProfileModulesPath Module-Loader.psm1)
-
-
-#$script:job = Get-Job -Name "PersistentModuleLoader" -ErrorAction SilentlyContinue
-function script:Start-PersistentSession {
-    # Check if the persistent process is already running
-    #$ExistingProcess = Get-Process -Name "pwsh" -ErrorAction SilentlyContinue | Where-Object {
-    #    $_.CommandLine -like "*ModuleLoader.psm1*"
-    #}
-    $ExistingProcess = Get-Process -Name "pwsh" -ErrorAction SilentlyContinue | Where-Object CommandLine -Match "ModuleLoader\.psm1"
-
-    if (-not $ExistingProcess) {
-        # Start the persistent process
-        Start-Process -FilePath "pwsh.exe" -ArgumentList "-NoExit", "-Command & {
-            Import-Module (Join-Path $ProfileModulesPath 'DebugUtils.psm1')
-            Import-Module (Join-Path $ProfileModulesPath 'ModuleLoader.psm1')
-
-            while ($true) { Start-Sleep -Seconds 60 }
-        }" -WindowStyle Hidden
-        # Log the job creation
-        Log-Time "Started persistent job 'PersistentModuleLoader' - Importing DebugUtils.psm1, ModuleLoader.psm1 and all other associated modules."
-        Write-Debug -Message "Started persistent background process for module loading." -Channel "Debug"
-    } else {
-        Write-Debug -Message "Not loading ModuleLoader or other Profile associated modules as they're already loaded and running" -Channel "Debug"
-        Log-Time "Finished skipping loading ModuleLoader and associated modules"
-    }
-}
-function global:Find-PersistentSession {
-    Get-Process -Name "pwsh" | Where-Object { $_.CommandLine -like "*ModuleLoader.psm1*" }
-}
-
-function global:Kill-PersistentSession {
-    Find-PersistentSession | Stop-Process
-    $FindResults = Find-PersistentSession
-    Write-Debug -Message "PersistantSession killed. Attempting to find session for debug: \n ${FindResults}"
-}
-
-# Ensure the persistent session is running
-# TODO: NOT WORKING - Modules are not loaded in mew sessions:wq
-#
-#Start-PersistentSession
-
 Import-Module (Join-Path $ProfileModulesPath 'DebugUtils.psm1')
 Import-Module (Join-Path $ProfileModulesPath 'ModuleLoader.psm1')
-
+#Import-Module -LiteralPath "$ProfileModulesPath\ModuleLoader.psm1" -Force
 #Start-AtuinHistory
 
 
@@ -214,9 +149,6 @@ Import-Module -Name Microsoft.WinGet.CommandNotFound
 # Initialize fnm (Fast Node Manager) environment variables
 fnm env | ForEach-Object { Invoke-Expression $_ }
 Log-Time "Fast Node Manager initialized"
-
-
-
 
 # Import the Chocolatey Profile that contains the necessary code to enable
 # tab-completions to function for `choco`.
@@ -248,6 +180,10 @@ Log-Time "Finished Importing ChocolateyProfile Module"
 # Initialize Oh-My-Posh with the desired theme
 oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\atomic.omp.json" | Invoke-Expression
 Log-Time "oh-my-posh init finished"
+
+
+Show-ModuleLoaderSummary
+Log-Time "ModuleLoader Summary"
 
 Write-Debug -Message "Finished loading PROFILE" -Channel "Debug" -Condition $DebugProfile
 
