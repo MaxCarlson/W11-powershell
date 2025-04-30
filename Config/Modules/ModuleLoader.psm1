@@ -1,62 +1,159 @@
-# ModuleLoader.psm1 — real import errors, clean summary
+# ModuleLoader.psm1
 
-# Prevent double-import
-if (-not $global:ModuleLoaderImported) {
-    $global:ModuleLoaderImported = $true
-} else {
+# ── Always initialize load results list & timer ─────────────────────────────────
+$script:ModuleLoadResults = [System.Collections.Generic.List[PSObject]]::new()
+$script:ModuleLoadTimer   = [System.Diagnostics.Stopwatch]::StartNew()
+Write-Host "ModuleLoader Initializing..." -ForegroundColor Cyan
+
+# ── Prevent the loading logic from running more than once ────────────────────────
+if ($global:ModuleLoaderLogicHasRun) {
+    Write-Host "ModuleLoader logic already run; skipping." -ForegroundColor Yellow
     return
 }
+$global:ModuleLoaderLogicHasRun = $true
+$global:ModuleLoaderFailed     = $false
 
-# Tracking
-$script:ModuleLoadFailures = @()
-$script:ModuleLoadStats    = @{}
+# ── Custom failure actions for specific modules ─────────────────────────────────
+$script:FailureActions = @{
+    "ListAliases" = {
+        Write-Warning "Custom action: ListAliases failed to load. Check installation/path."
+    }
+}
 
-function Initialize-Module {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)] [string] $Name,
-        [Parameter(Mandatory)] [string] $Path
-    )
-    try {
-        # load by file-path
-        Import-Module $Path -ErrorAction Stop
-
-        # count exported functions & aliases
-        $mod = Get-Module $Name -ErrorAction SilentlyContinue
-        if ($mod) {
-            $exports    = $mod.ExportedCommands.Values
-            $funcCount  = ($exports | Where CommandType -eq 'Function').Count
-            $aliasCount = ($exports | Where CommandType -eq 'Alias').Count
-            $script:ModuleLoadStats[$Name] = @{Functions=$funcCount;Aliases=$aliasCount}
+# ── Fallback Write-Debug if not available ───────────────────────────────────────
+if (-not (Get-Command 'Write-Debug' -ErrorAction SilentlyContinue)) {
+    function script:Write-Debug {
+        param(
+            [string]$Message = "",
+            [ValidateSet("Error","Warning","Verbose","Information","Debug")][string]$Channel = "Debug",
+            [AllowNull()][object]$Condition = $true,
+            [switch]$FileAndLine
+        )
+        if (-not $global:DebugProfile) { return }
+        try { if (-not [bool]$Condition) { return } } catch { return }
+        $output = $Message
+        if ($FileAndLine) {
+            $c = Get-PSCallStack | Select-Object -Skip 1 -First 1
+            if ($c.ScriptName) {
+                $f = Split-Path $c.ScriptName -Leaf
+                $output = "[${f}:${c.ScriptLineNumber}] $Message"
+            }
+        }
+        $colorMap = @{
+            Error        = "Red"
+            Warning      = "Yellow"
+            Verbose      = "Gray"
+            Information  = "Cyan"
+            Debug        = "Green"
+        }
+        if ($colorMap.ContainsKey($Channel)) {
+            Write-Host $output -ForegroundColor $colorMap[$Channel]
+        } else {
+            Write-Warning "[Fallback Write-Debug] Invalid channel: $Channel"
         }
     }
+    Write-Host "ModuleLoader: Using fallback Write-Debug." -ForegroundColor DarkYellow
+}
+
+# ── Function to import a module and record its result ───────────────────────────
+function script:Initialize-Module {
+    param(
+        [string]$ModuleName,
+        [string]$ModulePath
+    )
+    $beforeFns = (Get-Command -CommandType Function).Name
+    $beforeA  = (Get-Alias).Name
+    $result = [PSCustomObject]@{
+        ModuleName = $ModuleName
+        Status     = 'Failed'
+        Functions  = 0
+        Aliases    = 0
+        Error      = $null
+    }
+
+    try {
+        Write-Debug "Importing ${ModuleName}..." -Channel Verbose -Condition $global:DebugProfile
+        Import-Module -Name $ModulePath -ErrorAction Stop -Global
+
+        $afterFns = (Get-Command -CommandType Function).Name
+        $afterA   = (Get-Alias).Name
+        $result.Status    = 'Success'
+        $result.Functions = (Compare-Object -ReferenceObject $beforeFns -DifferenceObject $afterFns -PassThru).Count
+        $result.Aliases   = (Compare-Object -ReferenceObject $beforeA  -DifferenceObject $afterA  -PassThru).Count
+        Write-Debug "Imported ${ModuleName}: $($result.Functions) fn, $($result.Aliases) alias" `
+            -Channel Information -Condition $global:DebugProfile
+    }
     catch {
-        # show the *actual* import error
-        Write-Host "Error loading module '$Name': $($_.Exception.Message)" -ForegroundColor Red
-        $script:ModuleLoadFailures += $Name
+        $msg = $_.Exception.Message
+        Write-Debug "Failed to import ${ModuleName}. Error: $msg" `
+            -Channel Error -Condition $global:DebugProfile -FileAndLine
+        $result.Error = $msg
+        if ($script:FailureActions.ContainsKey($ModuleName)) {
+            try { & $script:FailureActions[$ModuleName] } catch { Write-Warning "FailureAction error for ${ModuleName}: $($_.Exception.Message)" }
+        }
+    }
+    finally {
+        $script:ModuleLoadResults.Add($result)
     }
 }
 
-# find all .psm1 except self & DebugUtils
-$current = [IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
-$all     = Get-ChildItem $Global:ProfileModulesPath -Filter '*.psm1' |
-           Where-Object { $_.BaseName -notin $current,'DebugUtils' }
-
-# load each
-foreach ($file in $all) {
-    Initialize-Module -Name $file.BaseName -Path $file.FullName
-}
-
-# public summary function
+# ── Summary display function ────────────────────────────────────────────────────
 function Show-ModuleLoaderSummary {
-    Write-Host "Module Load Summary:" -ForegroundColor Cyan
-    foreach ($e in $script:ModuleLoadStats.GetEnumerator() | Sort Name) {
-        Write-Host " - $($e.Key): $($e.Value.Functions) functions, $($e.Value.Aliases) aliases"
+    if ($script:ModuleLoadTimer.IsRunning) { $script:ModuleLoadTimer.Stop() }
+
+    Write-Host "`nModule Load Summary:"
+
+    if ($script:ModuleLoadResults.Count -eq 0) {
+        Write-Host "  No module loading results found." -ForegroundColor Yellow
     }
-    if ($script:ModuleLoadFailures.Count) {
-        Write-Host "`nModules Failed to Load:" -ForegroundColor Yellow
-        $script:ModuleLoadFailures | ForEach-Object { Write-Host " - $_" -ForegroundColor Red }
+    else {
+        $succ = $script:ModuleLoadResults | Where-Object Status -EQ 'Success' | Sort-Object ModuleName
+        $fail = $script:ModuleLoadResults | Where-Object Status -EQ 'Failed'  | Sort-Object ModuleName
+
+        if ($succ.Count) {
+            Write-Host "`n  Modules Successfully Loaded:" -ForegroundColor Green
+            foreach ($m in $succ) {
+                Write-Host "   - $($m.ModuleName): $($m.Functions) fn, $($m.Aliases) alias"
+            }
+        }
+        if ($fail.Count) {
+            Write-Host "`n  Modules Failed to Load:" -ForegroundColor Red
+            foreach ($m in $fail) {
+                $hint = ""
+                if ($global:DebugProfile -and $m.Error) {
+                    $hint = " (Error: $($m.Error.Split([char]10)[0]))"
+                }
+                Write-Host "   - $($m.ModuleName)$hint"
+            }
+        }
+    }
+
+    $elapsed = [math]::Round($script:ModuleLoadTimer.Elapsed.TotalMilliseconds, 4)
+    Write-Host "`nModuleLoader Summary took $elapsed ms"
+}
+
+# ── Module discovery & loading ─────────────────────────────────────────────────
+$current = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name)
+$path    = $Global:ProfileModulesPath
+if (-not (Test-Path $path -PathType Container)) {
+    Write-Error "Module directory '$path' not found. Aborting module load."
+    $global:ModuleLoaderFailed = $true
+}
+else {
+    $all = Get-ChildItem -Path $path -Filter '*.psm1' -ErrorAction Stop |
+           Where-Object BaseName -NotIn @($current,'DebugUtils')
+    if ($Global:OrderedModules -is [array] -and $Global:OrderedModules.Count) {
+        $first = $all | Where-Object { $Global:OrderedModules -contains $_.BaseName }
+        $rest  = $all | Where-Object { $Global:OrderedModules -notcontains $_.BaseName }
+        $toLoad = $first + ($rest | Sort-Object BaseName)
+    }
+    else {
+        $toLoad = $all | Sort-Object BaseName
+    }
+    foreach ($mod in $toLoad) {
+        Initialize-Module -ModuleName $mod.BaseName -ModulePath $mod.FullName
     }
 }
 
+# ── Export the summary function ─────────────────────────────────────────────────
 Export-ModuleMember -Function Show-ModuleLoaderSummary

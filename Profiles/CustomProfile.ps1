@@ -1,190 +1,110 @@
 # Profile for Current User Current Host located at $HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
-# To use this profile rename it to Microsoft.PowerShell_profile.ps1 and move it to the above directory
-# cp ProfileCUCH.ps1 $HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1 
 
-Write-Host "Profile script execution started."
+Write-Host "`nProfile script execution started."
 
-if (-not $global:ProfileLoaded) {
-    $global:ProfileLoaded = $true
-    Write-Host "ProfileLoaded flag is being set."
-} else {
-   # TODO: Write-Debug or Write-Host here to show we tried to load the $PROFILE twice
-    Write-Host "Profile already loaded (skipped function definition section)."
-    return
-}
+# --- Profile Load Guard ---
+if ($global:ProfileLoaded) { Write-Host "Profile already loaded (skipped execution)."; return }
+$global:ProfileLoaded = $true
+Write-Host "ProfileLoaded flag is being set."
 
-# Record the time we init the session
+# --- Initial Setup & Configuration ---
 $global:SessionStartTime = Get-Date
-# Define Script scope DebugProfile variable
-$global:DebugProfile = $true
-# Define base directory paths
+# --- !! SET DEBUG OUTPUT LEVEL HERE !! ---
+$global:DebugProfile = $false # Set to $false for the desired clean final output
+# --- Base Paths ---
 $global:PWSH_REPO = "$env:USERPROFILE\Repos\W11-powershell"
-$global:PWSH_SCRIPT_DIR = "$PWSH_REPO\Scripts"
-$global:PWSH_BIN_DIR = "$PWSH_REPO\bin"
-
-if (-not $global:UserFunctionsBeforeModules ) {
-    $global:UserFunctionsBeforeModules = Get-Command -CommandType Function | Select-Object -ExpandProperty Name
-    $global:UserAliasesBeforeModules = Get-Alias | Select-Object -ExpandProperty Name
-}
-
-# Reload $PROFILE and work around the double load check..
-# Not entirely working..? Beware modjles and functions won't loas again
-# if they're already loaded.. 
-# TODO: perhaps unloaded everything somehow to setup
-# a reload functionm
-function global:Reload-Profile {
-    $global:ProfileLoaded = $false
-    . $PROFILE
-}
-
-# Debug function for printing. Still is in DebugUtils, but it's nice to be able to use it before loading that module
-function script:Write-Debug {
-    param (
-        [string]$Message = "",
-
-        [Parameter()]
-        [ValidateSet("Error", "Warning", "Verbose", "Information", "Debug")]
-        [string]$Channel = "Debug",
-
-        [AllowNull()]
-        [object]$Condition = $true,
-
-        [switch]$FileAndLine # Flag to include caller file and line number
-    )
-
-    # Ensure DebugProfile is enabled 
-    if (-not $DebugProfile) {
-        return
-    }
-
-    # Validate and convert the Condition parameter
-    $isConditionMet = $true
-    if ($Condition -ne $null) {
-        try {
-            $isConditionMet = [bool]$Condition
-        } catch {
-            Write-Warning "Invalid Condition value for Write-Debug: '${Condition}'. Defaulting to `${false}`."
-            $isConditionMet = $false
-        }
-    }
-
-    if (-not $isConditionMet) {
-        return
-    }
-
-    # Prepare the message with optional caller information
-    $outputMessage = $Message
-    if ($FileAndLine) {
-        # Get caller information for debugging
-        $caller = Get-PSCallStack | Select-Object -Skip 1 -First 1
-        $callerFile = $caller.ScriptName
-        $callerLine = $caller.ScriptLineNumber
-        $outputMessage = "[${callerFile}:${callerLine}] $Message"
-    }
-
-    # Define channel colors
-    $colorMap = @{
-        "Error"       = "Red"
-        "Warning"     = "Yellow"
-        "Verbose"     = "Gray"
-        "Information" = "Cyan"
-        "Debug"       = "Green"
-    }
-
-    $color = $colorMap[$Channel]
-    if ($color) {
-        Write-Host $outputMessage -ForegroundColor $color
-    } else {
-        Write-Warning "Invalid channel specified: ${Channel}"
-    }
-
-
-
-}
-
-
-# Start Profiling Timer
-$script:StartTime = Get-Date
-
-# Measure specific parts of the profile
-function Log-Time {
-    param([string]$Message)
-    $CurrentTime = Get-Date
-    $ElapsedTime = ($CurrentTime - $StartTime).TotalMilliseconds
-    Write-Debug -Message "$Message took $ElapsedTime ms" -Channel "Information"
-    $StartTime = $CurrentTime
-}
-
-# Log the start time for oh-my-posh
-Log-Time "Starting PROFILE Logging"
-
-$Global:ProfileRepoPath = "${HOME}\Repos\W11-powershell"
-$Global:ProfilePath = "${ProfileRepoPath}\Profiles"
+if (-not (Test-Path $global:PWSH_REPO -PathType Container)) { Write-Warning "Repository path not found: $($global:PWSH_REPO)" }
+$Global:ProfileRepoPath = $global:PWSH_REPO
 $Global:ProfileModulesPath = Join-Path $Global:ProfileRepoPath "Config\Modules"
+if (-not (Test-Path $Global:ProfileModulesPath -PathType Container)) { Write-Error "Module directory not found: '$($Global:ProfileModulesPath)'. Cannot load custom modules."; return }
 
-# Variables Added to Profile from Add-Variable.ps1 script. TODO: Aforementioned Script needs to be adjusted to the current setup
-# ~~~~   Global Variables   ~~~~ #
+# --- Global Variables ---
 $global:OBSIDIAN = 'C:\Users\mcarls\Documents\Obsidian-Vault\'
 $global:SCRIPTS = 'C:\Projects\W11-powershell\'
-# ~~~~ End Global Variables ~~~~ #
 
-Log-Time "Global variables set"
+# --- Utility Functions Defined in Profile ---
+function global:Reload-Profile { Write-Warning "Attempting profile reload ($PROFILE). Close/reopen shell recommended."; $global:ProfileLoaded = $false; . $PROFILE }
+function script:Write-Debug { param([string]$Message="",[Parameter()][ValidateSet("Error", "Warning", "Verbose", "Information", "Debug")][string]$Channel="Debug",[AllowNull()][object]$Condition=$true,[switch]$FileAndLine)
+    if (-not $global:DebugProfile){return}; $isConditionMet=$true; if($Condition -ne $null){try {$isConditionMet=[bool]$Condition}catch{Write-Warning "[Profile Write-Debug] Invalid Condition:'$Condition'"; $isConditionMet=$false}}; if(-not $isConditionMet){return}
+    $outputMessage=$Message; if($FileAndLine){$caller=Get-PSCallStack|Select-Object -Skip 1 -First 1; if($caller -and $caller.ScriptName){$callerFile=Split-Path -Path $caller.ScriptName -Leaf;$callerLine=$caller.ScriptLineNumber;$outputMessage="[${callerFile}:${callerLine}] $Message"}else{$outputMessage="[?:?] $Message"}}
+    $colorMap=@{"Error"="Red";"Warning"="Yellow";"Verbose"="Gray";"Information"="Cyan";"Debug"="Green"}; $color=$colorMap[$Channel]; if($color){Write-Host $outputMessage -ForegroundColor $color}else{Write-Warning "[Profile Write-Debug] Invalid channel: ${Channel}"}}
+
+# --- Timing Setup ---
+$script:ProfileStartTime = [System.Diagnostics.Stopwatch]::StartNew()
+function Log-Time { param([string]$Message, [ValidateSet("Cumulative", "Incremental")][string]$Type = "Incremental")
+    if ($null -eq $script:LastLogTime) { $script:LastLogTime = $script:ProfileStartTime.Elapsed }
+    $currentTime = $script:ProfileStartTime.Elapsed; $totalElapsedMs = $currentTime.TotalMilliseconds; $incrementalMs = ($currentTime - $script:LastLogTime).TotalMilliseconds
+    $timeString = if ($Type -eq "Cumulative") {"$($totalElapsedMs.ToString('F4')) ms (Total)"} else {"$($incrementalMs.ToString('F4')) ms (Step)"}
+    if (Get-Command 'Write-Debug' -ErrorAction SilentlyContinue) { Write-Debug -Message "$Message took $timeString" -Channel "Information" -Condition $global:DebugProfile }
+    elseif ($global:DebugProfile) { Write-Host "[INFO] $Message took $timeString" }
+    $script:LastLogTime = $currentTime }
+
+# --- Start Profile Execution ---
+Log-Time "Starting PROFILE Logging"
 
 # Add custom modules path to PSModulePath
-$env:PSModulePath += ";`"$Global:ProfileModulesPath`""
-# Define a prioritized order for some modules (script-scoped)
-$Script:OrderedModules = @() #, "Other-Modules", ..., )
+if ($env:PSModulePath -notlike "*$($Global:ProfileModulesPath)*") { $env:PSModulePath = "$($env:PSModulePath);$($Global:ProfileModulesPath)"; Write-Debug "Added '$($Global:ProfileModulesPath)' to PSModulePath" -Channel Debug -Condition $global:DebugProfile }
+Log-Time "PSModulePath updated"
 
-Import-Module (Join-Path $ProfileModulesPath 'DebugUtils.psm1')
-Import-Module (Join-Path $ProfileModulesPath 'ModuleLoader.psm1')
-#Import-Module -LiteralPath "$ProfileModulesPath\ModuleLoader.psm1" -Force
-#Start-AtuinHistory
+# --- *** DEFINE MODULE LOAD ORDER HERE *** ---
+$Global:OrderedModules = @( )
+Write-Debug "Ordered modules set: $($Global:OrderedModules -join ', ')" -Channel Debug -Condition $global:DebugProfile
+Log-Time "Module order configured"
 
+# --- Load Core Utility Modules ---
+$DebugUtilsPath = Join-Path $Global:ProfileModulesPath 'DebugUtils.psm1'
+if (Test-Path $DebugUtilsPath) {
+    try { Write-Debug "Importing DebugUtils..." -Channel Verbose -Condition $global:DebugProfile; Import-Module $DebugUtilsPath -ErrorAction Stop; Log-Time "DebugUtils Imported" }
+    catch { Write-Warning "Failed to import DebugUtils: $($_.Exception.Message)"; Log-Time "DebugUtils Import Failed" }
+} else { Write-Debug "DebugUtils module not found, skipping." -Channel Information -Condition $global:DebugProfile; Log-Time "DebugUtils skipped" }
 
-# PowerToys CommandNotFound module (Optional: comment out if causing issues)
-#f45873b3-b655-43a6-b217-97c00aa0db58 PowerToys CommandNotFound module
-Import-Module -Name Microsoft.WinGet.CommandNotFound
-#f45873b3-b655-43a6-b217-97c00aa0db58
+# --- Load and Run ModuleLoader ---
+$Global:ModuleLoaderLogicHasRun = $false # Reset session logic run flag
+$Global:ModuleLoaderFailed = $false
+$ModuleLoaderPath = Join-Path $Global:ProfileModulesPath 'ModuleLoader.psm1'
+if (Test-Path $ModuleLoaderPath) {
+    try { Write-Debug "Importing ModuleLoader..." -Channel Verbose -Condition $global:DebugProfile; Import-Module $ModuleLoaderPath -ErrorAction Stop }
+    catch { Write-Warning "CRITICAL: ModuleLoader module failed to import: $($_.Exception.Message)"; $Global:ModuleLoaderFailed = $true; Log-Time "ModuleLoader Import Failed" }
+} else { Write-Error "ModuleLoader.psm1 not found at '$ModuleLoaderPath'."; $Global:ModuleLoaderFailed = $true; Log-Time "ModuleLoader skipped (not found)" }
 
-# Initialize fnm (Fast Node Manager) environment variables
-fnm env | ForEach-Object { Invoke-Expression $_ }
-Log-Time "Fast Node Manager initialized"
+# --- Display Module Loader Summary ---
+#if (-not $Global:ModuleLoaderFailed -and (Get-Command 'Show-ModuleLoaderSummary' -ErrorAction SilentlyContinue)) { Show-ModuleLoaderSummary }
+#elseif (-not $Global:ModuleLoaderFailed) { Write-Warning "ModuleLoader loaded, but Show-ModuleLoaderSummary function unavailable." }
+#Log-Time "ModuleLoader processing and summary finished"
 
-# Import the Chocolatey Profile that contains the necessary code to enable
-# tab-completions to function for `choco`.
-# Be aware that if you are missing these lines from your profile, tab completion
-# for `choco` will not function.
-# See https://ch0.co/tab-completion for details.
-$ChocolateyProfile = "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-if (Test-Path($ChocolateyProfile)) {
-  Import-Module "$ChocolateyProfile"
+# --- Load Other Standard/External Modules ---
+
+# PowerToys CommandNotFound
+try { Import-Module -Name Microsoft.WinGet.CommandNotFound -ErrorAction Stop; Log-Time "PowerToys CommandNotFound Imported" }
+catch { Write-Warning "Failed to import PowerToys CommandNotFound: $($_.Exception.Message)"; Log-Time "PowerToys Import Failed" }
+
+# FNM
+if (Get-Command fnm -ErrorAction SilentlyContinue) { try { fnm env | ForEach-Object { Invoke-Expression $_ }; Log-Time "FNM initialized" } catch { Write-Warning "Failed FNM init: $($_.Exception.Message)"; Log-Time "FNM init failed" } }
+else { Write-Debug "fnm not found, skipping." -Channel Information -Condition $global:DebugProfile; Log-Time "FNM skipped" }
+
+# Chocolatey
+$ChocolateyProfile = Join-Path $env:ChocolateyInstall "helpers\chocolateyProfile.psm1"
+if (Test-Path $ChocolateyProfile) { try { Import-Module $ChocolateyProfile -ErrorAction Stop; Log-Time "Chocolatey Profile Imported" } catch { Write-Warning "Failed Choco profile: $($_.Exception.Message)"; Log-Time "Choco Profile Import Failed" } }
+else { Write-Debug "Choco profile not found, skipping." -Channel Information -Condition $global:DebugProfile; Log-Time "Choco Profile skipped" }
+
+# Conda (Keep commented/configured as needed)
+# (& "C:\Users\mcarls\anaconda3\shell\condabin\conda-hook.ps1") | Out-Null; conda activate base; Log-Time "Conda Initialized"
+
+# Oh-My-Posh
+if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
+    $ompTheme = "$env:POSH_THEMES_PATH\atomic.omp.json"; if (Test-Path $ompTheme) { try { oh-my-posh init pwsh --config $ompTheme | Invoke-Expression; Log-Time "oh-my-posh init finished" } catch { Write-Warning "Failed OMP init: $($_.Exception.Message)"; Log-Time "oh-my-posh init failed" } }
+    else { Write-Warning "OMP theme not found: $ompTheme"; Log-Time "oh-my-posh skipped (theme missing)" }
+} else { Write-Debug "oh-my-posh not found, skipping." -Channel Information -Condition $global:DebugProfile; Log-Time "oh-my-posh skipped" }
+
+# --- Final Module Loader Summary as last output ---
+if (-not $Global:ModuleLoaderFailed -and (Get-Command 'Show-ModuleLoaderSummary' -ErrorAction SilentlyContinue)) {
+    Show-ModuleLoaderSummary
 }
-Log-Time "Finished Importing ChocolateyProfile Module"
 
+# --- Finalization ---
+$script:ProfileStartTime.Stop()
+$TotalProfileTime = $script:ProfileStartTime.Elapsed.TotalMilliseconds
+$finalMessage = "Finished loading PROFILE (Total Time: $($TotalProfileTime.ToString('F4')) ms)"
+if ($global:DebugProfile) { Write-Debug -Message $finalMessage -Channel "Information" } else { Write-Host $finalMessage }
 
-# >>> conda initialize >>>
-# CONDA IS ACTIVATED IN $PROFILE.CurrentUserCurrentHost
-# this is $PROFILE.AllUsersAllHosts
-# !! Contents within this block are managed by 'conda init' !!
-#(& "C:\Users\mcarls\anaconda3\shell\condabin\conda-hook.ps1") #| Out-Null
-#conda activate base
-# <<< conda initialize <<<
-
-
-# ~~~~ END OF PROFILE ~~~~
-#
-# ~~~~ List of oh-my-posh Themes I like or have used
-# jandedobbeleer.omp.json   - Old Slice theme
-# atomic.omp.json           - Laptop theme 01/2025, now Slice theme as well
-#
-# Initialize Oh-My-Posh with the desired theme
-oh-my-posh init pwsh --config "$env:POSH_THEMES_PATH\atomic.omp.json" | Invoke-Expression
-Log-Time "oh-my-posh init finished"
-
-
-Show-ModuleLoaderSummary
-Log-Time "ModuleLoader Summary"
-
-Write-Debug -Message "Finished loading PROFILE" -Channel "Debug" -Condition $DebugProfile
-
-# ~~~~ NOTHING AFTER THIS LINE ~~~~
+# --- END OF PROFILE ---
