@@ -49,36 +49,88 @@
 #
 #
 
-$env:EDITOR = "nvim"
-
-$script:ThemeName = "$env:POSH_THEMES_PATH\atomic.omp.json"
 
 Write-Host "Profile script execution started."
 
-if (-not $global:ProfileLoaded) {
-    $global:ProfileLoaded = $true
-    Write-Host "ProfileLoaded flag is being set."
-} else {
-   # TODO: Write-Debug or Write-Host here to show we tried to load the $PROFILE twice
+# Prevent duplicate profile loads
+if ($global:ProfileLoaded) {
     Write-Host "Profile already loaded (skipped function definition section)."
     return
 }
 
-# 🚀 Load All Dynamic Profile Scripts
-$global:DynamicProfileDir = "$HOME\Repos\W11-powershell\dynamic\start_profile"
+$global:DebugProfile=$true
 
-if (Test-Path $DynamicProfileDir) {
-    Get-ChildItem -Path $DynamicProfileDir -Filter "*.ps1" | ForEach-Object {
-        Write-Output "🔹 Loading: $_"
-        . $_.FullName
+# Set the root prefix environment variable (unix style)
+$env:MAMBA_ROOT_PREFIX = "$HOME/.condarc" 
+
+# Initialize micromamba for the current shell
+micromamba shell init -p "$HOME/.micromamba" -s powershell | Invoke-Expression
+#micromamba shell init --shell powershell --root-prefix=~/.local/share/mamba
+
+Write-Host "ProfileLoaded flag is being set."
+$global:ProfileLoaded = $true
+$env:EDITOR = "nvim"
+$script:ThemeName = "$env:POSH_THEMES_PATH\atomic.omp.json"
+
+# 🚀 Check predefined paths for `W11-powershell`
+$PossibleRepoPaths = @(
+    "$HOME\Repos\W11-powershell",
+    "$HOME\projects\W11-powershell",
+    "$HOME\Documents\W11-powershell"
+)
+
+$global:PWSH_REPO = $null
+
+foreach ($Path in $PossibleRepoPaths) {
+    if (Test-Path (Join-Path $Path "dynamic/start_profile/dynamic_global_variables.ps1")) {
+        $global:PWSH_REPO = $Path
+        Write-Output "🔹 Found W11-powershell repo: $PWSH_REPO"
+        break  # Stop at the first valid path
     }
 }
+
+# Ensure PWSH_REPO is set
+if (-not $global:PWSH_REPO) {
+    Write-Output "❌ Error: Could not find W11-powershell repo in predefined paths."
+    return
+}
+
+# Define Dynamic Profile Directory
+$global:DynamicProfileDir = Join-Path $global:PWSH_REPO "dynamic/start_profile"
+
+# Load global variables first
+$DynamicVariablesFile = Join-Path $global:DynamicProfileDir "dynamic_global_variables.ps1"
+if (Test-Path $DynamicVariablesFile) {
+    Write-Output "🔹 Loading dynamic global variables: $DynamicVariablesFile"
+    . $DynamicVariablesFile  # Load the global variables
+} else {
+    Write-Output "⚠️ Warning: Could not find dynamic global variables at: $DynamicVariablesFile"
+}
+
+# Ensure the dynamic profile directory exists and load all scripts
+if (Test-Path $global:DynamicProfileDir) {
+    Get-ChildItem -Path $global:DynamicProfileDir -Filter "*.ps1" | ForEach-Object {
+        if ($_.FullName -notmatch "dynamic_global_variables.ps1") {  # Avoid reloading global variables
+            Write-Output "🔹 Loading: $_"
+            . $_.FullName
+        }
+    }
+} else {
+    Write-Output "⚠️ Warning: Dynamic profile directory not found at: $global:DynamicProfileDir"
+}
+
+#Write-Host "PWSH_REPO: ${PWSH_REPO}"
+#Write-Host "PWSH_SCRIPT_DIR: ${PWSH_SCRIPT_DIR}"
+#Write-Host "PWSH_BIN_DIR: ${PWSH_BIN_DIR}"
+#Write-Output "✅ PWSH_MODULES_PATH: $global:PWSH_MODULES_PATH"
+#Write-Output "✅ PWSH_PROFILE_PATH: $global:PWSH_PROFILE_PATH"
 
 
 # Record the time we init the session
 $global:SessionStartTime = Get-Date
 # Define Script scope DebugProfile variable
 $global:DebugProfile = $true
+$global:SSH_HUB="$HOME\projects\ssh_hub"
 
 # These should already be defined by the generated global variables
 # Define base directory paths
@@ -205,12 +257,6 @@ Log-Time "Starting PROFILE Logging"
 #    $Global:HOME = $Env:USERPROFILE 
 #}
 
-# Variables Added to Profile from Add-Variable.ps1 script. TODO: Aforementioned Script needs to be adjusted to the current setup
-# ~~~~   Global Variables   ~~~~ #
-$global:OBSIDIAN = 'C:\Users\mcarls\Documents\Obsidian-Vault\'
-$global:SCRIPTS = 'C:\Projects\W11-powershell\'
-# ~~~~ End Global Variables ~~~~ #
-
 Log-Time "Global variables set"
 
 # Add custom modules path to PSModulePath
@@ -219,8 +265,6 @@ $env:PSModulePath += ";`"$Global:PWSH_MODULES_PATH`""
 $Script:OrderedModules = @() #, "Other-Modules", ..., )
 
 #Import-Module (Join-Path $PWSH_MODULES_PATH Module-Loader.psm1)
-
-
 #$script:job = Get-Job -Name "PersistentModuleLoader" -ErrorAction SilentlyContinue
 function script:Start-PersistentSession {
     # Check if the persistent process is already running
@@ -265,14 +309,16 @@ Import-Module (Join-Path $PWSH_MODULES_PATH 'ModuleLoader.psm1')
 
 #Start-AtuinHistory
 
+# Register Auto env shifts for conda
+Register-AutoEnv -Env scripts -Paths ~/projects/scripts #, other/env/paths, etc/etc/etc, 
 
 # PowerToys CommandNotFound module (Optional: comment out if causing issues)
 #f45873b3-b655-43a6-b217-97c00aa0db58 PowerToys CommandNotFound module
-Import-Module -Name Microsoft.WinGet.CommandNotFound
+#Import-Module -Name Microsoft.WinGet.CommandNotFound
 #f45873b3-b655-43a6-b217-97c00aa0db58
 
 # Initialize fnm (Fast Node Manager) environment variables
-fnm env | ForEach-Object { Invoke-Expression $_ }
+#fnm env | ForEach-Object { Invoke-Expression $_ }
 Log-Time "Fast Node Manager initialized"
 
 

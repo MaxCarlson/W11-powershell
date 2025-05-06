@@ -71,7 +71,7 @@ $currentModuleName = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation
 #Write-Host "Current module name: $currentModuleName"
 
 # Get all module files from the directory
-$Script:AllModules = Get-ChildItem -Path $Global:ProfileModulesPath -Filter *.psm1
+$Script:AllModules = Get-ChildItem -Path $global:PWSH_MODULES_PATH -Filter *.psm1
 
 # Check the modules before filtering (for debugging purposes)
 #Write-Host "All modules before filtering: $($AllModules | ForEach-Object { $_.BaseName })"
