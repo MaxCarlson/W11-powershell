@@ -6,18 +6,21 @@ if (-not $global:ModuleImportedCDModule) {
 }
 
 # Alias cd to our custom Set-Location function
-function cdd { Set-Location "C:\Users\mcarls\Documents\" }
-function cdobs { Set-Location "C:\Users\mcarls\Documents\Obsidian-Vault\" }
-function cdpo { Set-Location "D:\Pictures\Saved\" }
-function cdpon { Set-Location "D:\Pictures\Saved\tmpvids" }
-function cdpoi { Set-Location "D:\Pictures\Saved\Pics\" }
-function cdpoh { Set-Location "D:\Pictures\Saved\Pics\hentaiImages" }
+function cdd { Set-Location "$HOME\Documents\" }
+function cddl { Set-Location "$HOME\Downloads\"}
+function cdobs { Set-Location "$HOME\Documents\Obsidian-Vault\" }
 function cdsrc { Set-Location "$HOME\Repos\" }
 function cds { Set-Location "$HOME\Repos\scripts\" }
 function cdre { cdsrc }
 function cdpwsh { Set-Location "$HOME\Repos\W11-powershell\" }
 function cdps { cdpwsh }
 function cdmo { Set-Location "$HOME\Repos\W11-powershell\Config\Modules"}
+function cdtor { Set-Location "C:\Torrents"}
+function cdtord { Set-Location "D:\Torrents"}
+function cdpo { Set-Location "D:\Pictures\Saved\" }
+function cdpon { Set-Location "D:\Pictures\Saved\tmpvids" }
+function cdpoi { Set-Location "D:\Pictures\Saved\Pics\" }
+function cdpoh { Set-Location "D:\Pictures\Saved\Pics\hentaiImages" }
 
 # Setting Aliases, lots of UNIX aliases have been converted to powershell here
 # Functions for changing directories

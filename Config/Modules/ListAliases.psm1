@@ -46,6 +46,8 @@ function fcount {
     (Get-ChildItem -Path $Path -File).Count
 }
 
+function deldirs { get-childItem -Directory | Remove-Item -Recurse -Force; }
+
 # === Auto-export all new functions and aliases ===
 # (throws nothing if nothing new to export)
 Export-AutoExportFunctions -Exclude @()          # no functions to exclude
