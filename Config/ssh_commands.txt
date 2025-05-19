@@ -1,0 +1,9 @@
+# SSH commands for local machines:
+
+# TODO: Make the local IP's into variables, as well as the user+IP strings. Then make aliases for each 
+
+## Termux
+ssh -p 8022 u0_a340@192.168.50.101
+
+## Slice
+ssh -p 22 mcarls@192.168.50.100
