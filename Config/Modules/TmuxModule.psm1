@@ -1,28 +1,24 @@
+# TmuxModule.psm1
+
+# Import AutoExport helper
+. "$PSScriptRoot\AutoExportModule.psm1"
+
+# Capture existing aliases to exclude from auto-export
+$preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
+
 <#
 .SYNOPSIS
-    Manage and attach to tmux sessions for Bash or PowerShell 7.
-
+    Start or attach to a tmux session running native Bash.
 .DESCRIPTION
-    Provides cmdlets with approved verbs to start, list, and enter tmux sessions 
-    running either your native Bash login shell or a full‐profile PowerShell 7 
-    (Oh-My-Posh) session. Also defines six short aliases for quick use.
-
-.NOTES
-    Path: C:\Users\mcarls\Repos\W11-powershell\Config\Modules\TmuxModule.psm1
-    Requires: tmux (via Cygwin or WSL), PowerShell 7 in Program Files.
-#>
-
-<#
-.SYNOPSIS
-    Start a new tmux session running Bash.
+    Creates or attaches to a tmux session named by -Session, defaulting to 'bash'.
 .PARAMETER Session
     Name of the tmux session. Defaults to 'bash'.
 .EXAMPLE
     Start-TmuxBashSession
-    # Creates (or attaches to) session called "bash".
+    # Creates or attaches to session 'bash'.
 .EXAMPLE
     Start-TmuxBashSession -Session dev
-    # Creates (or attaches to) session called "dev".
+    # Creates or attaches to session 'dev'.
 #>
 function Start-TmuxBashSession {
     [CmdletBinding()]
@@ -30,17 +26,19 @@ function Start-TmuxBashSession {
         [Parameter(Position=0)]
         [string]$Session = 'bash'
     )
-    tmux new-session -s $Session
+    tmux new-session -A -s $Session
 }
 
 <#
 .SYNOPSIS
-    Start a new tmux session running PowerShell 7.
+    Start or attach to a tmux session running PowerShell 7.
+.DESCRIPTION
+    Creates or attaches to a tmux session named by -Session running pwsh, defaulting to 'pwsh'.
 .PARAMETER Session
     Name of the tmux session. Defaults to 'pwsh'.
 .EXAMPLE
     Start-TmuxPwshSession
-    # Creates (or attaches to) session called "pwsh".
+    # Creates or attaches to session 'pwsh'.
 #>
 function Start-TmuxPwshSession {
     [CmdletBinding()]
@@ -49,39 +47,39 @@ function Start-TmuxPwshSession {
         [string]$Session = 'pwsh'
     )
     $pwshCmd = '/cygdrive/c/Progra~1/PowerShell/7/pwsh.exe -NoLogo -NoExit'
-    tmux new-session -s $Session $pwshCmd
+    tmux new-session -A -s $Session $pwshCmd
 }
 
 <#
 .SYNOPSIS
-    List tmux sessions whose names begin with 'bash'.
+    List tmux sessions named 'bash*'.
 .EXAMPLE
     Get-TmuxBashSessions
 #>
 function Get-TmuxBashSessions {
     tmux list-sessions -F "#{session_name}: #{?session_attached,attached,detached}" |
-      Where-Object { $_ -match '^[bB]ash:' }
+        Where-Object { $_ -match '^[bB]ash:' }
 }
 
 <#
 .SYNOPSIS
-    List tmux sessions whose names begin with 'pwsh'.
+    List tmux sessions named 'pwsh*'.
 .EXAMPLE
     Get-TmuxPwshSessions
 #>
 function Get-TmuxPwshSessions {
     tmux list-sessions -F "#{session_name}: #{?session_attached,attached,detached}" |
-      Where-Object { $_ -match '^[pP]wsh:' }
+        Where-Object { $_ -match '^[pP]wsh:' }
 }
 
 <#
 .SYNOPSIS
-    Attach to the most recently created detached tmux session of a given type.
+    Attach to the most recent detached tmux session of a given type, or start one if none exist.
 .PARAMETER Type
-    'bash' or 'pwsh'
+    Type of session: 'bash' or 'pwsh'.
 .EXAMPLE
-    Enter-TmuxLatestBashSession
-    # Attaches to the newest detached 'bash*' session.
+    Enter-TmuxLatestSession -Type bash
+    # Attaches to the newest detached 'bash*' session or starts one.
 #>
 function Enter-TmuxLatestSession {
     [CmdletBinding()]
@@ -90,6 +88,7 @@ function Enter-TmuxLatestSession {
         [ValidateSet('bash','pwsh')]
         [string]$Type
     )
+
     $lines = tmux list-sessions -F "#{session_name} #{session_created} #{?session_attached,attached,detached}"
     $sessions = $lines | ForEach-Object {
         $parts = $_ -split ' '
@@ -99,41 +98,48 @@ function Enter-TmuxLatestSession {
             Status  = $parts[2]
         }
     }
+
     $latest = $sessions |
-      Where-Object { $_.Name -like "$Type*" -and $_.Status -eq 'detached' } |
-      Sort-Object Created -Descending |
-      Select-Object -First 1
+        Where-Object { $_.Name -like "$Type*" -and $_.Status -eq 'detached' } |
+        Sort-Object Created -Descending |
+        Select-Object -First 1
 
     if (-not $latest) {
-        Write-Warning "No detached $Type sessions found."
+        # No detached session → start one
+        Write-Debug "No detached $Type sessions; starting new '$Type' session." -Condition $DebugProfile
+        $funcName = "Start-Tmux$($Type.Substring(0,1).ToUpper() + $Type.Substring(1))Session"
+        & $funcName -Session $Type
         return
     }
+
     tmux attach-session -t $latest.Name
 }
 
 <#
 .SYNOPSIS
-    Attach to the most recent detached 'bash*' tmux session.
+    Attach to the latest detached 'bash*' session.
+.EXAMPLE
+    Enter-TmuxLatestBashSession
 #>
 function Enter-TmuxLatestBashSession { Enter-TmuxLatestSession -Type 'bash' }
 
 <#
 .SYNOPSIS
-    Attach to the most recent detached 'pwsh*' tmux session.
+    Attach to the latest detached 'pwsh*' session.
+.EXAMPLE
+    Enter-TmuxLatestPwshSession
 #>
 function Enter-TmuxLatestPwshSession { Enter-TmuxLatestSession -Type 'pwsh' }
 
-# Export only approved‐verb commands:
-Export-ModuleMember -Function `
-    Start-TmuxBashSession, Start-TmuxPwshSession, `
-    Get-TmuxBashSessions, Get-TmuxPwshSessions, `
-    Enter-TmuxLatestBashSession, Enter-TmuxLatestPwshSession
+# === Short, tmux-prefixed aliases ===
+New-Alias -Name tmuxbs -Value Start-TmuxBashSession
+New-Alias -Name tmuxps -Value Start-TmuxPwshSession
+New-Alias -Name tmuxlb -Value Get-TmuxBashSessions
+New-Alias -Name tmuxlp -Value Get-TmuxPwshSessions
+New-Alias -Name tmuxeb -Value Enter-TmuxLatestBashSession
+New-Alias -Name tmuxep -Value Enter-TmuxLatestPwshSession
 
-# Short aliases
-Set-Alias tmb  Start-TmuxBashSession       -Option AllScope
-Set-Alias tmp  Start-TmuxPwshSession       -Option AllScope
-Set-Alias gtb  Get-TmuxBashSessions        -Option AllScope
-Set-Alias gtp  Get-TmuxPwshSessions        -Option AllScope
-Set-Alias jtb  Enter-TmuxLatestBashSession -Option AllScope
-Set-Alias jtp  Enter-TmuxLatestPwshSession -Option AllScope
+# === Auto-export all new functions and aliases ===
+Export-AutoExportFunctions -Exclude @()
+Export-AutoExportAliases   -Exclude $preExistingAliases
 
