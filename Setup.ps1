@@ -10,17 +10,17 @@
 .\Scripts\SetupScripts\ProgramBackup.ps1 -Setup -BackupFrequency Daily -UpdateFrequency Daily
 
 # Define the modules to link
-$modulesToLink = @(
-    @{ Path = ".\Modules\Coloring.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\Installer.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\SessionTools.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\Downloader.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\Extractor.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\PathManager.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\Add-ToPath.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\LinkManager.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\BackupAndRestore.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\HelpModule.psm1"; LinkType = "hard"; Target = "user" }
+#$modulesToLink = @(
+#    @{ Path = ".\Modules\Coloring.psm1"; LinkType = "hard"; Target = "user" }
+#    @{ Path = ".\Modules\Installer.psm1"; LinkType = "hard"; Target = "user" }
+#    @{ Path = ".\Modules\SessionTools.psm1"; LinkType = "hard"; Target = "user" }
+#    @{ Path = ".\Modules\Downloader.psm1"; LinkType = "hard"; Target = "user" }
+#    @{ Path = ".\Modules\Extractor.psm1"; LinkType = "hard"; Target = "user" }
+#    @{ Path = ".\Modules\PathManager.psm1"; LinkType = "hard"; Target = "user" }
+#    @{ Path = ".\Modules\Add-ToPath.psm1"; LinkType = "hard"; Target = "user" }
+#    @{ Path = ".\Modules\LinkManager.psm1"; LinkType = "hard"; Target = "user" }
+#    @{ Path = ".\Modules\BackupAndRestore.psm1"; LinkType = "hard"; Target = "user" }
+#    @{ Path = ".\Modules\HelpModule.psm1"; LinkType = "hard"; Target = "user" }
 )
 
 # PowerShell Modules path
@@ -68,7 +68,12 @@ foreach ($module in $modulesToLink) {
 # Setup any & all Executable scripts in bin/
 & "${PWSH_REPO}/Setup/SetupExecutables.ps1"
 
-return
+
+# ── Ensure package managers and export current package lists ──
+. "$PSScriptRoot\Setup\Ensure-PackageManagers.ps1"
+# ── Package-list management & installation ──
+. "$PSScriptRoot\Setup\Install-Packages.ps1"
+
 
 # Recursively get a list of SetupSchedule.ps1 files
 $setupFiles = Get-ChildItem -Path $baseDirectory -Filter "Scripts\MoveFiles\SetupSchedule.ps1" -Recurse
