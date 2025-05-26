@@ -1,503 +1,382 @@
 # TmuxModule.psm1
 
-# Import AutoExport helper
-# Ensure AutoExportModule.psm1 exists in the same directory or provide the correct path.
-if (Test-Path -Path "$PSScriptRoot\AutoExportModule.psm1") {
-    . "$PSScriptRoot\AutoExportModule.psm1"
+# Import Auto-Export helper (adjust path if needed)
+#
+. "$PSScriptRoot\AutoExportModule.psm1"
+
+# Import Guard
+if (-not $script:ModuleImportedListAliases) {
+    $script:ModuleImportedListAliases = $true
 } else {
-    Write-Warning "AutoExportModule.psm1 not found at $PSScriptRoot. Auto-export features may not work."
+    Write-Debug -Message 'Attempting to import ListAliases twice!' `
+                -Channel 'Error' -Condition $DebugProfile -FileAndLine
+    return
 }
 
-# Capture existing aliases to exclude from auto-export
+# Capture existing aliases before we define our own
 $preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
-
 <#
 .SYNOPSIS
-    Start or attach to a tmux session running native Bash.
+    Tmux integration module for PowerShell, mirroring Zsh/common tmux helpers.
 .DESCRIPTION
-    Creates or attaches to a tmux session named by -Session, defaulting to 'bash'.
-.PARAMETER Session
-    Name of the tmux session. Defaults to 'bash'.
-    Allows providing a custom name for the session.
-.EXAMPLE
-    Start-TmuxBashSession
-    # Creates or attaches to session 'bash'.
-.EXAMPLE
-    Start-TmuxBashSession -Session dev
-    # Creates or attaches to session 'dev'.
+    Provides cross-platform tmux session and window management functions
+    designed for ease of use and consistency with common tmux workflows.
+    Requires tmux to be installed and in PATH.
+    Requires fzf to be installed and in PATH for fuzzy finding functions (tsf, tsd).
+.NOTES
+    Author: Your Name
+    Version: 1.1
 #>
-function Start-TmuxBashSession {
-    [CmdletBinding()]
-    param(
-        [Parameter(Position=0)]
-        [string]$Session = 'bash'
-    )
-    Write-Host "DEBUG: Entering Start-TmuxBashSession for session '${Session}'."
-    $tmuxCmdInfo = Get-Command tmux -ErrorAction SilentlyContinue
-    if (-not $tmuxCmdInfo) {
-        Write-Error "DEBUG: tmux command not found in Start-TmuxBashSession. Please ensure tmux is installed and in your PATH."
-        return
-    }
-    Write-Host "DEBUG: tmux command found at: $($tmuxCmdInfo.Source)"
-    Write-Host "DEBUG: Starting or attaching to tmux session '${Session}' with bash."
-    
-    # Using call operator for external command
-    & tmux new-session -A -s "${Session}"
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "DEBUG: tmux command to start/attach session '${Session}' (bash) may have failed. LASTEXITCODE: ${LASTEXITCODE}"
-    } else {
-        Write-Host "DEBUG: tmux new-session -A -s '${Session}' (bash) completed. LASTEXITCODE: ${LASTEXITCODE}"
-    }
-}
 
-<#
-.SYNOPSIS
-    Start or attach to a tmux session running PowerShell.
-.DESCRIPTION
-    Creates or attaches to a tmux session named by -Session running pwsh, defaulting to 'pwsh'.
-    The 'pwsh' command is expected to be in the PATH of the tmux server environment.
-.PARAMETER Session
-    Name of the tmux session. Defaults to 'pwsh'.
-    Allows providing a custom name for the session.
-.EXAMPLE
-    Start-TmuxPwshSession
-    # Creates or attaches to session 'pwsh'.
-.EXAMPLE
-    Start-TmuxPwshSession -Session projectX
-    # Creates or attaches to session 'projectX' running pwsh.
-#>
-function Start-TmuxPwshSession {
-    [CmdletBinding()]
-    param(
-        [Parameter(Position=0)]
-        [string]$Session = 'pwsh'
-    )
-    Write-Host "DEBUG: Entering Start-TmuxPwshSession for session '${Session}'."
-    $tmuxCmdInfo = Get-Command tmux -ErrorAction SilentlyContinue
-    if (-not $tmuxCmdInfo) {
-        Write-Error "DEBUG: tmux command not found in Start-TmuxPwshSession. Please ensure tmux is installed and in your PATH."
-        return
-    }
-    Write-Host "DEBUG: tmux command found at: $($tmuxCmdInfo.Source)"
+# --- Helper Function ---
 
-    if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
-        Write-Warning "DEBUG: pwsh command not found in the current PowerShell session's PATH. Ensure 'pwsh' is available in the tmux server's environment PATH."
-    }
-    
-    $pwshCmd = 'pwsh -NoLogo -NoExit' 
-    Write-Host "DEBUG: Starting or attaching to tmux session '${Session}' with command '${pwshCmd}'."
-    
-    # Using call operator for external command
-    & tmux new-session -A -s "${Session}" "${pwshCmd}"
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "DEBUG: tmux command to start/attach session '${Session}' with pwsh may have failed. LASTEXITCODE: ${LASTEXITCODE}"
-    } else {
-        Write-Host "DEBUG: tmux new-session -A -s '${Session}' with pwsh completed. LASTEXITCODE: ${LASTEXITCODE}"
-    }
-}
-
-# Helper function for debug testing tmux list-sessions
-function Invoke-TmuxListSessionsForDebug {
-    [CmdletBinding()]
-    param(
-        [string]$TestId # e.g., "Get-TmuxBashSessions"
-    )
-    
-    $tmuxCommand = "tmux"
-    $tmuxBaseArgs = @("list-sessions", "-F", "#{session_name}: #{?session_attached,attached,detached}")
-    
-    Write-Host "DEBUG (${TestId}): Preparing to call tmux."
-    Write-Host "DEBUG (${TestId}): Command: ${tmuxCommand}"
-    Write-Host "DEBUG (${TestId}): Arguments: $($tmuxBaseArgs -join ' ')"
-
-    # Test 1: Using call operator '&' with an arguments array
-    Write-Host "DEBUG (${TestId}): === TEST 1: Attempting '& ${tmuxCommand} @(${tmuxBaseArgs -join ','})'. Expect output or freeze. ==="
-    $rawOutputTest1 = @() 
-    $exceptionTest1 = $null
-    $lastExitCodeTest1 = -1
-    try {
-        $rawOutputTest1 = & $tmuxCommand $tmuxBaseArgs
-        $lastExitCodeTest1 = $LASTEXITCODE
-        Write-Host "DEBUG (${TestId}): TEST 1: Call operator '&' completed. LASTEXITCODE: ${lastExitCodeTest1}"
-    } catch {
-        $exceptionTest1 = $_
-        Write-Warning "DEBUG (${TestId}): TEST 1: Call operator '&' threw an exception: $($_.Exception.Message)"
-    }
-    if ($exceptionTest1) { Write-Host "DEBUG (${TestId}): TEST 1: Exception details: $($exceptionTest1 | Out-String)" }
-    if ($rawOutputTest1 -ne $null) {
-        Write-Host "DEBUG (${TestId}): TEST 1: Output line count: $($rawOutputTest1.Length)"
-        $rawOutputTest1 | ForEach-Object { Write-Host "DEBUG_OUT_T1 (${TestId}): $_" }
-    } else { Write-Host "DEBUG (${TestId}): TEST 1: No output captured or output was null." }
-    Write-Host "DEBUG (${TestId}): === TEST 1 END. ==="
-
-    # Test 2: The @(...) redirection method (kept for comparison)
-    Write-Host "DEBUG (${TestId}): === TEST 2: Attempting '@(${tmuxCommand} $($tmuxBaseArgs -join ' ') 2>&1)'. Expect output or freeze. ==="
-    $sessionLinesTest2 = @() 
-    $exceptionTest2 = $null
-    $lastExitCodeTest2 = -1
-    try {
-        # For @() to work correctly with arguments containing spaces, they might need individual quoting within the string
-        # or ensure the command string is constructed carefully.
-        # For simplicity and direct comparison to previous attempts, keeping it similar.
-        $sessionLinesTest2 = @(tmux list-sessions -F "#{session_name}: #{?session_attached,attached,detached}" 2>&1)
-        $lastExitCodeTest2 = $LASTEXITCODE
-        Write-Host "DEBUG (${TestId}): TEST 2: '@(tmux ... 2>&1)' call completed. LASTEXITCODE from @(): ${lastExitCodeTest2}" 
-    } catch {
-        $exceptionTest2 = $_
-        Write-Warning "DEBUG (${TestId}): TEST 2: '@(tmux ... 2>&1)' call threw an exception: $($_.Exception.Message)"
-    }
-    if ($exceptionTest2) { Write-Host "DEBUG (${TestId}): TEST 2: Exception details: $($exceptionTest2 | Out-String)" }
-    if ($sessionLinesTest2 -ne $null) {
-        Write-Host "DEBUG (${TestId}): TEST 2: Output line count: $($sessionLinesTest2.Length)"
-        $sessionLinesTest2 | ForEach-Object { Write-Host "DEBUG_OUT_T2 (${TestId}): $_" }
-    } else { Write-Host "DEBUG (${TestId}): TEST 2: No output captured or output was null." }
-    Write-Host "DEBUG (${TestId}): === TEST 2 END. ==="
-
-    if ($lastExitCodeTest1 -eq 0 -and $rawOutputTest1 -ne $null -and $rawOutputTest1.Count -gt 0) {
-        Write-Host "DEBUG (${TestId}): Using output from TEST 1 (call operator)."
-        return $rawOutputTest1, $lastExitCodeTest1
-    } elseif ($lastExitCodeTest2 -eq 0 -and $sessionLinesTest2 -ne $null -and $sessionLinesTest2.Count -gt 0) {
-        Write-Host "DEBUG (${TestId}): Using output from TEST 2 (@(...)) as TEST 1 failed or was empty."
-        return $sessionLinesTest2, $lastExitCodeTest2
-    } elseif ($rawOutputTest1 -ne $null) { 
-        Write-Host "DEBUG (${TestId}): TEST 1 (call operator) ran but might not have been successful or was empty. Using its output."
-        return $rawOutputTest1, $lastExitCodeTest1
-    } else { 
-         Write-Host "DEBUG (${TestId}): TEST 1 and TEST 2 failed to produce usable output. Using Test 2's (potentially empty) output as a last resort."
-        return $sessionLinesTest2, $lastExitCodeTest2 # Fallback to Test 2 output
-    }
-}
-
-
-<#
-.SYNOPSIS
-    List tmux sessions whose names start with 'bash'.
-.DESCRIPTION
-    Filters tmux sessions to show only those typically started as bash sessions.
-.EXAMPLE
-    Get-TmuxBashSessions
-#>
-function Get-TmuxBashSessions {
+function Test-Tmux {
     [CmdletBinding()]
     param()
-    Write-Host "DEBUG: Entering Get-TmuxBashSessions function..."
-    $tmuxCmdInfo = Get-Command tmux -ErrorAction SilentlyContinue
-    if (-not $tmuxCmdInfo) {
-        Write-Error "DEBUG: tmux command not found in Get-TmuxBashSessions."
-        return
+    if (-not (Get-Command tmux -ErrorAction SilentlyContinue)) {
+        Write-Error "tmux is not installed or not in PATH."
+        return $false
     }
-
-    $outputFromHelper, $exitCodeFromHelper = Invoke-TmuxListSessionsForDebug -TestId "Get-TmuxBashSessions"
-    $finalSessionLinesToProcess = $outputFromHelper
-    $finalExitCode = $exitCodeFromHelper # Corrected variable name
-    
-    Write-Host "DEBUG (Get-TmuxBashSessions): Processing results. Exit code from helper: ${finalExitCode}"
-
-    if ($finalExitCode -ne 0) {
-        if (($finalSessionLinesToProcess -join " ") -match "no server running|failed to connect to server") {
-            Write-Host "DEBUG (Get-TmuxBashSessions): No tmux server running or no sessions found."
-            return # Exit the function
-        }
-        # If it's not a "no server" message but still an error, warn but proceed if there's any output
-        Write-Warning "DEBUG (Get-TmuxBashSessions): tmux list-sessions had non-zero exit code ${finalExitCode}. Output: $($finalSessionLinesToProcess -join "`n")"
-        if ($null -eq $finalSessionLinesToProcess -or $finalSessionLinesToProcess.Count -eq 0) {
-            return # No output to process after error
-        }
-    }
-    
-    if ($null -eq $finalSessionLinesToProcess -or $finalSessionLinesToProcess.Count -eq 0) {
-        Write-Host "DEBUG (Get-TmuxBashSessions): No output from tmux list-sessions to process."
-        return
-    }
-    
-    $bashSessions = $finalSessionLinesToProcess | ForEach-Object {
-        $line = $_
-        if ($line -match '^([^:]+):\s*(attached|detached)$') {
-            $sessionName = $Matches[1]
-            if ($sessionName -match '^[bB]ash') {
-                $line 
-            }
-        } elseif ($line -notmatch "no server running|failed to connect to server") {
-            Write-Host "DEBUG (Get-TmuxBashSessions): Skipping non-session line: ${line}"
-        }
-    } | Where-Object { $_ -ne $null }
-
-    if ($bashSessions.Count -gt 0) {
-        Write-Host "DEBUG (Get-TmuxBashSessions): Filtered bash sessions found. Returning them."
-        $bashSessions
-    } else {
-        Write-Host "DEBUG (Get-TmuxBashSessions): No tmux sessions starting with 'bash' found."
-    }
+    return $true
 }
+
+# --- Core Functions ---
 
 <#
 .SYNOPSIS
-    List tmux sessions whose names start with 'pwsh'.
+    Attach to an existing tmux session or create a new one.
 .DESCRIPTION
-    Filters tmux sessions to show only those typically started as PowerShell sessions.
+    If inside a tmux session, switches to the target session.
+    If outside tmux, attaches to the target session.
+    If the target session does not exist, creates a new session with that name.
+    Defaults to session name '1'.
+.PARAMETER Session
+    The name of the tmux session to attach to, switch to, or create. Defaults to '1'.
 .EXAMPLE
-    Get-TmuxPwshSessions
+    ts
+    # Attaches to session '1', or creates it if it doesn't exist.
+.EXAMPLE
+    ts -Session "myproject"
+    # Attaches to session 'myproject', or creates it.
+.EXAMPLE
+    ts "dev"
+    # Attaches to session 'dev', or creates it.
 #>
-function Get-TmuxPwshSessions {
+function ts {
     [CmdletBinding()]
-    param()
-    Write-Host "DEBUG: Entering Get-TmuxPwshSessions function..."
-    $tmuxCmdInfo = Get-Command tmux -ErrorAction SilentlyContinue
-    if (-not $tmuxCmdInfo) {
-        Write-Error "DEBUG: tmux command not found in Get-TmuxPwshSessions."
-        return
-    }
-
-    $outputFromHelper, $exitCodeFromHelper = Invoke-TmuxListSessionsForDebug -TestId "Get-TmuxPwshSessions"
-    $finalSessionLinesToProcess = $outputFromHelper
-    $finalExitCode = $exitCodeFromHelper # Corrected variable name
-
-    Write-Host "DEBUG (Get-TmuxPwshSessions): Processing results. Exit code from helper: ${finalExitCode}"
-
-    if ($finalExitCode -ne 0) {
-        if (($finalSessionLinesToProcess -join " ") -match "no server running|failed to connect to server") {
-            Write-Host "DEBUG (Get-TmuxPwshSessions): No tmux server running or no sessions found."
-            return # Exit the function
-        }
-        Write-Warning "DEBUG (Get-TmuxPwshSessions): tmux list-sessions had non-zero exit code ${finalExitCode}. Output: $($finalSessionLinesToProcess -join "`n")"
-        if ($null -eq $finalSessionLinesToProcess -or $finalSessionLinesToProcess.Count -eq 0) {
-            return # No output to process after error
-        }
-    }
-    
-    if ($null -eq $finalSessionLinesToProcess -or $finalSessionLinesToProcess.Count -eq 0) {
-        Write-Host "DEBUG (Get-TmuxPwshSessions): No output from tmux list-sessions to process."
-        return
-    }
-    
-    $pwshSessions = $finalSessionLinesToProcess | ForEach-Object {
-        $line = $_
-        if ($line -match '^([^:]+):\s*(attached|detached)$') {
-            $sessionName = $Matches[1]
-            if ($sessionName -match '^[pP]wsh') {
-                $line
-            }
-        } elseif ($line -notmatch "no server running|failed to connect to server") {
-            Write-Host "DEBUG (Get-TmuxPwshSessions): Skipping non-session line: ${line}"
-        }
-    } | Where-Object { $_ -ne $null }
-
-    if ($pwshSessions.Count -gt 0) {
-        Write-Host "DEBUG (Get-TmuxPwshSessions): Filtered pwsh sessions found. Returning them."
-        $pwshSessions
-    } else {
-        Write-Host "DEBUG (Get-TmuxPwshSessions): No tmux sessions starting with 'pwsh' found."
-    }
-}
-
-<#
-.SYNOPSIS
-    Attach to the most recent detached tmux session of a given type, or start one if none exist.
-.PARAMETER Type
-    Type of session: 'bash' or 'pwsh'.
-.EXAMPLE
-    Enter-TmuxLatestSession -Type bash
-#>
-function Enter-TmuxLatestSession {
-    [CmdletBinding(SupportsShouldProcess=$true)]
     param(
-        [Parameter(Mandatory)]
-        [ValidateSet('bash','pwsh')]
-        [string]$Type
+        [Parameter(Position=0, ValueFromPipeline=$false, HelpMessage="Name of the tmux session.")]
+        [string]$Session = '1'
     )
-    Write-Host "DEBUG: Entering Enter-TmuxLatestSession for type '${Type}'."
-    $tmuxCmdInfo = Get-Command tmux -ErrorAction SilentlyContinue
-    if (-not $tmuxCmdInfo) {
-        Write-Error "DEBUG: tmux command not found in Enter-TmuxLatestSession."
-        return
-    }
 
-    Write-Host "DEBUG (Enter-TmuxLatestSession): Looking for latest detached tmux session of type '${Type}'."
-    
-    $tmuxCommandEnter = "tmux"
-    $tmuxArgsEnter = @("list-sessions", "-F", "#{session_name} #{session_created} #{?session_attached,attached,detached}")
+    if (-not (Test-Tmux)) { return }
 
-    Write-Host "DEBUG (Enter-TmuxLatestSession): Preparing to call tmux."
-    Write-Host "DEBUG (Enter-TmuxLatestSession): Command: ${tmuxCommandEnter}"
-    Write-Host "DEBUG (Enter-TmuxLatestSession): Arguments: $($tmuxArgsEnter -join ' ')"
-
-
-    # Test 1 for Enter-TmuxLatestSession (Call operator)
-    Write-Host "DEBUG (Enter-TmuxLatestSession): === TEST 1 (Enter): Attempting '& ${tmuxCommandEnter} @($($tmuxArgsEnter -join ','))'. ==="
-    $rawOutputTest1Enter = @()
-    $exceptionTest1Enter = $null
-    $lastExitCodeTest1Enter = -1
-    try {
-        $rawOutputTest1Enter = & $tmuxCommandEnter $tmuxArgsEnter
-        $lastExitCodeTest1Enter = $LASTEXITCODE
-        Write-Host "DEBUG (Enter-TmuxLatestSession): TEST 1 (Enter): Call operator '&' completed. LASTEXITCODE: ${lastExitCodeTest1Enter}"
-        if ($rawOutputTest1Enter -ne $null) {
-             $rawOutputTest1Enter | ForEach-Object { Write-Host "DEBUG_OUT_T1_Enter: $_" }
+    $existingSessions = & tmux list-sessions -F '#{session_name}' 2>$null
+    $sessionExists = $false
+    if ($existingSessions -is [array]) {
+        if ($existingSessions -contains $Session) {
+            $sessionExists = $true
         }
-    } catch { 
-        $exceptionTest1Enter = $_
-        Write-Warning "DEBUG (Enter-TmuxLatestSession): TEST 1 (Enter): Call operator '&' Exception: $($_.Exception.Message)" 
-    }
-    
-
-    # Test 2 for Enter-TmuxLatestSession (@(...) method)
-    Write-Host "DEBUG (Enter-TmuxLatestSession): === TEST 2 (Enter): Attempting '@(${tmuxCommandEnter} $($tmuxArgsEnter -join ' ') 2>&1)'. ==="
-    $sessionLinesTest2Enter = @()
-    $exceptionTest2Enter = $null
-    $lastExitCodeTest2Enter = -1
-    try {
-        $sessionLinesTest2Enter = @(tmux list-sessions -F "#{session_name} #{session_created} #{?session_attached,attached,detached}" 2>&1)
-        $lastExitCodeTest2Enter = $LASTEXITCODE
-        Write-Host "DEBUG (Enter-TmuxLatestSession): TEST 2 (Enter): '@(tmux ...)' completed. LASTEXITCODE: ${lastExitCodeTest2Enter}"
-        if ($sessionLinesTest2Enter -ne $null) {
-            $sessionLinesTest2Enter | ForEach-Object { Write-Host "DEBUG_OUT_T2_Enter: $_" }
+    } elseif ($existingSessions -is [string]) {
+        if ($existingSessions -eq $Session) {
+            $sessionExists = $true
         }
-    } catch { 
-        $exceptionTest2Enter = $_
-        Write-Warning "DEBUG (Enter-TmuxLatestSession): TEST 2 (Enter): '@(tmux ...)' Exception: $($_.Exception.Message)" 
     }
-    
 
-    # Choose which output to process for Enter-TmuxLatestSession
-    $tmuxOutputLines = $null
-    $chosenExitCode = -1
-
-    if ($lastExitCodeTest1Enter -eq 0 -and $rawOutputTest1Enter -ne $null -and $rawOutputTest1Enter.Count -gt 0) {
-        $tmuxOutputLines = $rawOutputTest1Enter
-        $chosenExitCode = $lastExitCodeTest1Enter
-        Write-Host "DEBUG (Enter-TmuxLatestSession): Using output from TEST 1 (Enter - Call Operator)."
-    } elseif ($lastExitCodeTest2Enter -eq 0 -and $sessionLinesTest2Enter -ne $null -and $sessionLinesTest2Enter.Count -gt 0) {
-        $tmuxOutputLines = $sessionLinesTest2Enter
-        $chosenExitCode = $lastExitCodeTest2Enter
-        Write-Host "DEBUG (Enter-TmuxLatestSession): Using output from TEST 2 (Enter - @(...)) as TEST 1 failed or was empty."
-    } elseif ($rawOutputTest1Enter -ne $null) { # Fallback to Test 1 output even if exit code wasn't 0
-         $tmuxOutputLines = $rawOutputTest1Enter
-         $chosenExitCode = $lastExitCodeTest1Enter
-        Write-Host "DEBUG (Enter-TmuxLatestSession): Using output from TEST 1 (Enter - Call Operator) despite potential issues (Exit Code: ${chosenExitCode})."
-    } else { # Fallback to Test 2 output
-        $tmuxOutputLines = $sessionLinesTest2Enter
-        $chosenExitCode = $lastExitCodeTest2Enter
-        Write-Host "DEBUG (Enter-TmuxLatestSession): Using output from TEST 2 (Enter - @(...)) despite potential issues (Exit Code: ${chosenExitCode})."
-    }
-    
-    $sessions = @() 
-
-    if ($chosenExitCode -ne 0) {
-        if (($tmuxOutputLines -join " ") -match "no server running|failed to connect to server") {
-            Write-Host "DEBUG (Enter-TmuxLatestSession): No tmux server running. Will proceed to start a new session."
-            # $sessions will remain empty, leading to new session creation.
+    if ($sessionExists) {
+        if ($env:TMUX) {
+            Write-Verbose "Inside tmux. Switching to session: $Session"
+            & tmux switch-client -t $Session
         } else {
-            # Log error but proceed if there's any output to parse
-            Write-Warning "DEBUG (Enter-TmuxLatestSession): tmux list-sessions had non-zero exit code ${chosenExitCode}. Output: $($tmuxOutputLines -join "`n")"
-            if ($null -eq $tmuxOutputLines -or $tmuxOutputLines.Count -eq 0) {
-                 # No output to process, so new session path will be taken.
-            }
-        }
-    }
-
-    if ($tmuxOutputLines -ne $null) {
-        $sessions = $tmuxOutputLines | ForEach-Object {
-            $line = $_
-            if ($line -match '^(\S+)\s+(\d+)\s+(attached|detached)$') {
-                [PSCustomObject]@{
-                    Name    = $Matches[1]
-                    Created = [int]$Matches[2] 
-                    Status  = $Matches[3]
-                }
-            } else {
-                 # Avoid logging "no server" messages as errors here if they slipped through
-                 if ($line -notmatch "no server running|failed to connect to server") {
-                    Write-Host "DEBUG (Enter-TmuxLatestSession): Skipping malformed line during parsing: ${line}"
-                 }
-            }
-        } | Where-Object { $_ -ne $null }
-    }
-    Write-Host "DEBUG (Enter-TmuxLatestSession): Parsed $($sessions.Count) sessions."
-
-    $latestDetachedSession = $sessions |
-        Where-Object { $_.Name -match "^${Type}" -and $_.Status -eq 'detached' } | 
-        Sort-Object Created -Descending |
-        Select-Object -First 1
-
-    if ($latestDetachedSession) {
-        Write-Host "DEBUG (Enter-TmuxLatestSession): Found detached session: $($latestDetachedSession.Name). Attaching."
-        if ($pscmdlet.ShouldProcess($latestDetachedSession.Name, "Attach to tmux session")) {
-            & tmux attach-session -t $latestDetachedSession.Name # Using call operator
-            if ($LASTEXITCODE -ne 0) { Write-Warning "DEBUG: tmux attach-session for '$($latestDetachedSession.Name)' may have failed. LASTEXITCODE: ${LASTEXITCODE}" }
-            else { Write-Host "DEBUG: tmux attach-session for '$($latestDetachedSession.Name)' completed. LASTEXITCODE: ${LASTEXITCODE}"}
+            Write-Verbose "Outside tmux. Attaching to session: $Session"
+            & tmux attach-session -t $Session
         }
     } else {
-        Write-Host "DEBUG (Enter-TmuxLatestSession): No suitable detached session for '${Type}'. Starting new."
-        $startFunctionName = "Start-Tmux$($Type.Substring(0,1).ToUpper() + $Type.Substring(1))Session"
-        if ($pscmdlet.ShouldProcess("new ${Type} session (name: ${Type})", "Start tmux session via ${startFunctionName}")) {
-            $functionCmd = Get-Command $startFunctionName -ErrorAction SilentlyContinue
-            if ($functionCmd) {
-                Write-Host "DEBUG (Enter-TmuxLatestSession): Calling ${startFunctionName} -Session ${Type}"
-                & $functionCmd -Session $Type # Using call operator
-            } else {
-                Write-Error "DEBUG (Enter-TmuxLatestSession): Helper function ${startFunctionName} not found."
+        Write-Verbose "Session '$Session' not found. Creating new session."
+        $commandToRun = ""
+        if ($IsWindows) {
+            if (Get-Command pwsh -ErrorAction SilentlyContinue) {
+                $commandToRun = "pwsh"
+            } elseif (Get-Command powershell -ErrorAction SilentlyContinue) {
+                $commandToRun = "powershell"
             }
+        }
+        # For Linux/macOS, tmux will use default-shell or default-command from .tmux.conf
+        # If $commandToRun is empty, tmux uses its default.
+        if ($commandToRun) {
+             Write-Verbose "Starting new session '$Session' with command: $commandToRun"
+            & tmux new-session -s $Session -n "shell" $commandToRun
+        } else {
+             Write-Verbose "Starting new session '$Session' with default shell."
+            & tmux new-session -s $Session -n "shell"
         }
     }
 }
 
 <#
 .SYNOPSIS
-    Attach to the latest detached 'bash*' session, or start a new 'bash' session.
+    List all current tmux sessions.
+.DESCRIPTION
+    Displays a list of all active tmux sessions.
+    If no sessions are active, it will indicate that.
 .EXAMPLE
-    Enter-TmuxLatestBashSession
+    tsl
 #>
-function Enter-TmuxLatestBashSession {
-    [CmdletBinding(SupportsShouldProcess=$true)]
+function tsl {
+    [CmdletBinding()]
     param()
-    Write-Host "DEBUG: Entering Enter-TmuxLatestBashSession."
-    if ($pscmdlet.ShouldProcess("latest detached bash session (or new 'bash' session)", "Enter Tmux Bash Environment")) {
-        Enter-TmuxLatestSession -Type 'bash'
+
+    if (-not (Test-Tmux)) { return }
+
+    $sessions = & tmux list-sessions 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $sessions) {
+        Write-Host "No tmux sessions."
+    } else {
+        Write-Output $sessions
     }
 }
 
 <#
 .SYNOPSIS
-    Attach to the latest detached 'pwsh*' session, or start a new 'pwsh' session.
+    Attach to a new or existing tmux session by specific name (alias for ts).
+.DESCRIPTION
+    Functionally identical to 'ts'. Creates a session if it doesn't exist,
+    otherwise attaches or switches to it.
+.PARAMETER Session
+    The mandatory name of the tmux session.
 .EXAMPLE
-    Enter-TmuxLatestPwshSession
+    tsn "project-alpha"
 #>
-function Enter-TmuxLatestPwshSession {
-    [CmdletBinding(SupportsShouldProcess=$true)]
+function tsn {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position=0, Mandatory=$true, HelpMessage="Name of the tmux session.")]
+        [string]$Session
+    )
+    if (-not (Test-Tmux)) { return }
+    ts -Session $Session
+}
+
+<#
+.SYNOPSIS
+    Fuzzy find and attach to a tmux session.
+.DESCRIPTION
+    Uses fzf to provide a fuzzy searchable list of existing tmux sessions.
+    The selected session is then attached to or switched to using 'ts'.
+    Requires 'fzf' to be installed and in PATH.
+.EXAMPLE
+    tsf
+#>
+function tsf {
+    [CmdletBinding()]
     param()
-    Write-Host "DEBUG: Entering Enter-TmuxLatestPwshSession."
-    if ($pscmdlet.ShouldProcess("latest detached pwsh session (or new 'pwsh' session)", "Enter Tmux PowerShell Environment")) {
-        Enter-TmuxLatestSession -Type 'pwsh'
+
+    if (-not (Test-Tmux)) { return }
+    if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
+        Write-Error "fzf is not installed or not in PATH. tsf cannot function."
+        return
+    }
+
+    $sessions = & tmux list-sessions -F '#{session_name}' 2>$null
+    if (-not $sessions) {
+        Write-Host "No tmux sessions to select from."
+        return
+    }
+
+    $selection = $sessions | fzf
+    if ($selection) {
+        ts -Session $selection
+    } else {
+        Write-Verbose "No session selected from fzf."
     }
 }
 
-# === Short, tmux-prefixed aliases ===
-$aliasOptions = @{ Force = $true; Scope = 'Local'; ErrorAction = 'SilentlyContinue' }
+<#
+.SYNOPSIS
+    Fuzzy find and attach to a DETACHED tmux session.
+.DESCRIPTION
+    Uses fzf to provide a fuzzy searchable list of currently detached tmux sessions.
+    The selected session is then attached to or switched to using 'ts'.
+    Requires 'fzf' to be installed and in PATH.
+.EXAMPLE
+    tsd
+#>
+function tsd {
+    [CmdletBinding()]
+    param()
 
-Write-Host "DEBUG: Setting up aliases..."
-Set-Alias -Name tmuxbs -Value Start-TmuxBashSession @aliasOptions
-Set-Alias -Name tmuxps -Value Start-TmuxPwshSession @aliasOptions
-Set-Alias -Name tmuxlb -Value Get-TmuxBashSessions @aliasOptions
-Set-Alias -Name tmuxlp -Value Get-TmuxPwshSessions @aliasOptions
-Set-Alias -Name tmuxeb -Value Enter-TmuxLatestBashSession @aliasOptions
-Set-Alias -Name tmuxep -Value Enter-TmuxLatestPwshSession @aliasOptions
-Write-Host "DEBUG: Aliases setup complete."
+    if (-not (Test-Tmux)) { return }
+    if (-not (Get-Command fzf -ErrorAction SilentlyContinue)) {
+        Write-Error "fzf is not installed or not in PATH. tsd cannot function."
+        return
+    }
+
+    $detachedItems = & tmux list-sessions -F '#{session_name} #{session_attached}' 2>$null |
+        Where-Object { $_ -match '\s0$' } | # Session is detached (attached count is 0)
+        ForEach-Object { ($_ -split ' ')[0] }
+
+    if (-not $detachedItems) {
+        Write-Host "No detached tmux sessions."
+        return
+    }
+
+    $selection = $detachedItems | fzf
+    if ($selection) {
+        ts -Session $selection
+    } else {
+        Write-Verbose "No detached session selected from fzf."
+    }
+}
+
+<#
+.SYNOPSIS
+    Re-attach to the last detached tmux session.
+.DESCRIPTION
+    Finds the most recently detached tmux session (last in the list of detached sessions)
+    and attaches to it using 'ts'.
+.EXAMPLE
+    tsr
+#>
+function tsr {
+    [CmdletBinding()]
+    param()
+
+    if (-not (Test-Tmux)) { return }
+
+    $lastDetached = & tmux list-sessions -F '#{session_name} #{session_attached}' 2>$null |
+        Where-Object { $_ -match '\s0$' } |
+        ForEach-Object { ($_ -split ' ')[0] } |
+        Select-Object -Last 1
+
+    if ($lastDetached) {
+        Write-Verbose "Re-attaching to last detached session: $lastDetached"
+        ts -Session $lastDetached
+    } else {
+        Write-Host "No detached tmux sessions found."
+    }
+}
+
+<#
+.SYNOPSIS
+    Create and attach to the next available numerically named session (ts1, ts2, etc.).
+.DESCRIPTION
+    Finds the lowest positive integer 'N' such that a session named 'tsN'
+    does not already exist, then creates and attaches to 'tsN' using 'ts'.
+.EXAMPLE
+    tsnxt
+    # If ts1 exists, but ts2 doesn't, creates and attaches to ts2.
+#>
+function tsnxt {
+    [CmdletBinding()]
+    param()
+
+    if (-not (Test-Tmux)) { return }
+
+    $idx = 1
+    $existingSessions = & tmux list-sessions -F '#{session_name}' 2>$null
+    $nextSessionName = ""
+
+    while ($true) {
+        $potentialName = "ts$idx"
+        $nameExists = $false
+        if ($existingSessions -is [array]) {
+            if ($existingSessions -contains $potentialName) {
+                $nameExists = $true
+            }
+        } elseif ($existingSessions -is [string]) {
+            if ($existingSessions -eq $potentialName) {
+                $nameExists = $true
+            }
+        }
+
+        if (-not $nameExists) {
+            $nextSessionName = $potentialName
+            break
+        }
+        $idx++
+        if ($idx -gt 1000) { # Safety break
+            Write-Error "Could not find an available 'tsN' session name after 1000 attempts."
+            return
+        }
+    }
+    
+    Write-Verbose "Next available session name: $nextSessionName"
+    ts -Session $nextSessionName
+}
+
+<#
+.SYNOPSIS
+    Rename the current tmux session.
+.DESCRIPTION
+    If currently inside a tmux session, renames the current session to the NewName.
+.PARAMETER NewName
+    The new name for the current tmux session.
+.EXAMPLE
+    tsrename "my-new-project-name"
+#>
+function tsrename {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position=0, Mandatory=$true, HelpMessage="The new name for the session.")]
+        [string]$NewName
+    )
+
+    if (-not (Test-Tmux)) { return }
+
+    if (-not $env:TMUX) {
+        Write-Warning "Not inside a tmux session. Cannot rename."
+        return
+    }
+
+    & tmux rename-session $NewName
+    Write-Host "Current tmux session renamed to: $NewName"
+}
+
+<#
+.SYNOPSIS
+    Detach the current tmux client.
+.DESCRIPTION
+    If currently inside a tmux session, detaches the client from the session,
+    leaving the session running in the background.
+.EXAMPLE
+    tmd
+#>
+function tmd {
+    [CmdletBinding()]
+    param()
+
+    if (-not (Test-Tmux)) { return }
+
+    if (-not $env:TMUX) {
+        Write-Warning "Not inside a tmux session. Nothing to detach from."
+        return
+    }
+    
+    Write-Verbose "Detaching tmux client."
+    & tmux detach-client
+}
+
+# --- Aliases ---
+# Scope Global makes them available everywhere after module import.
+# Consider 'Script' or 'Local' if you prefer them less globally.
+Set-Alias -Name ts -Value ts -Scope Global -Description "Tmux: Attach/Switch/New session"
+Set-Alias -Name tsl -Value tsl -Scope Global -Description "Tmux: List sessions"
+Set-Alias -Name tsn -Value tsn -Scope Global -Description "Tmux: New/Attach session by name"
+Set-Alias -Name tsf -Value tsf -Scope Global -Description "Tmux: Fuzzy find session"
+Set-Alias -Name tsd -Value tsd -Scope Global -Description "Tmux: Fuzzy find detached session"
+Set-Alias -Name tsr -Value tsr -Scope Global -Description "Tmux: Re-attach last detached session"
+Set-Alias -Name tsnxt -Value tsnxt -Scope Global -Description "Tmux: Next available 'tsN' session"
+Set-Alias -Name tsrename -Value tsrename -Scope Global -Description "Tmux: Rename current session"
+Set-Alias -Name tmd -Value tmd -Scope Global -Description "Tmux: Detach client"
+
+# --- Module Export ---
+# By default, all functions are exported. Explicitly listing them is good practice.
+#Export-ModuleMember -Function Test-Tmux, ts, tsl, tsn, tsf, tsd, tsr, tsnxt, tsrename, tmd
+#Export-ModuleMember -Alias ts, tsl, tsn, tsf, tsd, tsr, tsnxt, tsrename, tmd
+
+#Write-Host "TmuxModule loaded. Available functions/aliases: ts, tsl, tsn, tsf, tsd, tsr, tsnxt, tsrename, tmd."
 
 # === Auto-export all new functions and aliases ===
-if (Get-Command -Name Export-AutoExportFunctions -ErrorAction SilentlyContinue) {
-    Write-Host "DEBUG: Attempting to auto-export functions."
-    Export-AutoExportFunctions -Exclude @()
-} else {
-    Write-Warning "DEBUG: Export-AutoExportFunctions not found. Functions may not be exported."
-}
-
-if (Get-Command -Name Export-AutoExportAliases -ErrorAction SilentlyContinue) {
-    Write-Host "DEBUG: Attempting to auto-export aliases."
-    Export-AutoExportAliases -Exclude $preExistingAliases
-} else {
-    Write-Warning "DEBUG: Export-AutoExportAliases not found. Aliases may not be exported."
-}
-
-Write-Host "DEBUG: TmuxModule.psm1 processing complete."
+# (throws nothing if nothing new to export)
+Export-AutoExportFunctions -Exclude @()          # no functions to exclude
+Export-AutoExportAliases   -Exclude $preExistingAliases
