@@ -37,3 +37,5 @@ function Export-AutoExportAliases {
     }
     if ($toExport) { Export-ModuleMember -Alias $toExport }
 }
+
+Export-ModuleMember -Function Export-AutoExportAliases, Export-AutoExportFunctions 
