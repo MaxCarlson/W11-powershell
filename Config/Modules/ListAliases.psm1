@@ -41,6 +41,15 @@ function lt3 { eza --icons --classify --long --tree --level=3 --git }
 function lt4 { eza --icons --classify --long --tree --level=4 --git }
 function lt5 { eza --icons --classify --long --tree --level=5 --git }
 
+# Prints out all the hidden files, up to a depth of $depth
+function fddots {
+    param (
+        [int]$depth = 1
+    )
+
+    fd --hidden --max-depth $depth '^\.' .
+}
+
 function fcount {
     param([string]$Path = '.')
     (Get-ChildItem -Path $Path -File).Count

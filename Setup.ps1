@@ -1,124 +1,146 @@
-#Set-Location ~
-# Example Setup Script
-#mkdir sources
-#Set-Location sources
-#
-#gh repo clone W11-powershell
-# Example Setup Script with Fixes
+# File: Setup.ps1
+# Main Orchestrator Script
+# Ensure this script is run as Administrator for full functionality.
 
-.\Scripts\SetupScripts\StartSSHAgent.ps1
-.\Scripts\SetupScripts\ProgramBackup.ps1 -Setup -BackupFrequency Daily -UpdateFrequency Daily
+# --- Administrator Check ---
+function Assert-Administrator-Main {
+    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
+        Write-Warning "This setup script performs operations that require Administrator privileges (e.g., installing software, managing scheduled tasks, configuring firewall/network)."
+        $choice = Read-Host "Do you want to attempt to re-launch as Administrator? (y/N)"
+        if ($choice -eq 'y') {
+            Start-Process PowerShell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Definition)`"" -Verb RunAs
+            exit # Exit current non-admin session
+        } else {
+            Write-Error "Administrator privileges are required. Please re-run this script as an Administrator."
+            # Optionally, allow to continue with a warning if some parts can run without admin
+            # Read-Host "Press Enter to continue without admin rights (some operations may fail), or Ctrl+C to exit."
+            exit 1 # Or just exit
+        }
+    }
+}
+Assert-Administrator-Main
 
-# Define the modules to link
-$modulesToLink = @(
-    @{ Path = ".\Modules\Coloring.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\Installer.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\SessionTools.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\Downloader.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\Extractor.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\PathManager.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\Add-ToPath.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\LinkManager.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\BackupAndRestore.psm1"; LinkType = "hard"; Target = "user" }
-    @{ Path = ".\Modules\HelpModule.psm1"; LinkType = "hard"; Target = "user" }
+# --- Script Base Path ---
+# $PSScriptRoot is the directory where the current script (Setup.ps1) is located.
+$ScriptBase = $PSScriptRoot
+Write-Host "Setup script running from: $ScriptBase" -ForegroundColor Yellow
+
+# --- Global Variable for Repository Root (if needed by child scripts) ---
+# If your scripts consistently use $env:PWSH_REPO, define it robustly.
+$env:PWSH_REPO = $ScriptBase
+Write-Host "Setting PWSH_REPO environment variable for this session to: $($env:PWSH_REPO)" -ForegroundColor DarkGray
+
+# --- Initial Setup Scripts ---
+Write-Host "--- Running initial setup scripts... ---" -ForegroundColor Cyan
+$initialSetupScripts = @(
+    "Scripts\SetupScripts\StartSSHAgent.ps1",
+    "Scripts\SetupScripts\ProgramBackup.ps1" # Added default parameters as per your original
 )
-
-# PowerShell Modules path
-$userModulesPath = "${env:USERPROFILE}\Documents\PowerShell\Modules"
-
-foreach ($module in $modulesToLink) {
-    # Ensure $module.Path is valid
-    if (-not (Test-Path -Path $module.Path)) {
-        Write-Host "Error: Module path '$($module.Path)' does not exist." -ForegroundColor Red
-        continue
-    }
-
-    # Get the module name from the file name
-    $moduleName = (Get-Item $module.Path).BaseName
-    $moduleTargetPath = Join-Path -Path $userModulesPath -ChildPath $moduleName
-
-    # Ensure the target folder exists
-    if (-not (Test-Path -Path $moduleTargetPath)) {
-        New-Item -ItemType Directory -Path $moduleTargetPath -Force | Out-Null
-        Write-Host "Created directory for module: $moduleTargetPath" -ForegroundColor Cyan
-    }
-
-    # Create a hard link for the .psm1 file inside the target folder
-    $targetLinkPath = Join-Path -Path $moduleTargetPath -ChildPath "$moduleName.psm1"
-    if (-not (Test-Path -Path $targetLinkPath)) {
-        New-Item -ItemType HardLink -Path $targetLinkPath -Target $module.Path
-        Write-Host "Linked module $($module.Path) to $targetLinkPath successfully." -ForegroundColor Green
-    } else {
-        Write-Host "Hard link for module $moduleName already exists. Skipping." -ForegroundColor Yellow
-    }
-
-    # Import the module to ensure it's available in the current session
-    if (-not (Get-Module -Name $moduleName -ListAvailable)) {
+foreach ($scriptRelPath in $initialSetupScripts) {
+    $scriptFullPath = Join-Path -Path $ScriptBase -ChildPath $scriptRelPath
+    if (Test-Path $scriptFullPath) {
+        Write-Host "Executing: $scriptFullPath"
         try {
-            Import-Module -Name $targetLinkPath
-            Write-Host "Imported Module $moduleName successfully." -ForegroundColor Green
+            if ($scriptRelPath -eq "Scripts\SetupScripts\ProgramBackup.ps1") {
+                & $scriptFullPath -Setup -BackupFrequency Daily -UpdateFrequency Daily -ErrorAction Stop
+            } else {
+                & $scriptFullPath -ErrorAction Stop
+            }
         } catch {
-            Write-Host "Failed to import module $moduleName. Error: $_" -ForegroundColor Red
+            Write-Warning "Error executing $scriptFullPath: $_"
         }
     } else {
-        Write-Host "Module '$moduleName' already exists. Skipping import." -ForegroundColor Yellow
+        Write-Warning "Initial setup script not found: $scriptFullPath"
     }
 }
 
-# Setup any & all Executable scripts in bin/
-& "${PWSH_REPO}/Setup/SetupExecutables.ps1"
+# --- Setup Executables in bin/ ---
+Write-Host "--- Setting up executables in bin/... ---" -ForegroundColor Cyan
+$setupExecutablesScript = Join-Path -Path $env:PWSH_REPO -ChildPath "Setup\SetupExecutables.ps1"
+if (Test-Path $setupExecutablesScript) {
+    Write-Host "Executing: $setupExecutablesScript"
+    try {
+        & $setupExecutablesScript -ErrorAction Stop
+    } catch {
+        Write-Warning "Error executing $setupExecutablesScript: $_"
+    }
+} else {
+    Write-Warning "SetupExecutables.ps1 not found at: $setupExecutablesScript"
+}
 
-return
+# --- Ensure Package Managers and Core Tools ---
+# Assuming Ensure-PackageManagers.ps1 and Install-Packages.ps1 are in a "Setup" subdirectory
+$packageManagerSetupScript = Join-Path -Path $ScriptBase -ChildPath "Setup\Ensure-PackageManagers.ps1"
+if (Test-Path $packageManagerSetupScript) {
+    Write-Host "--- Ensuring package managers are available... ---" -ForegroundColor Cyan
+    Write-Host "Executing: $packageManagerSetupScript"
+    . $packageManagerSetupScript # Source it to make functions available if needed, or use &
+} else {
+    Write-Warning "Ensure-PackageManagers.ps1 not found at $packageManagerSetupScript"
+}
 
-# Recursively get a list of SetupSchedule.ps1 files
-$setupFiles = Get-ChildItem -Path $baseDirectory -Filter "Scripts\MoveFiles\SetupSchedule.ps1" -Recurse
+# --- Package-list management & installation ---
+$installPackagesScript = Join-Path -Path $ScriptBase -ChildPath "Setup\Install-Packages.ps1"
+if (Test-Path $installPackagesScript) {
+    Write-Host "--- Installing packages from lists... ---" -ForegroundColor Cyan
+    Write-Host "Executing: $installPackagesScript"
+    . $installPackagesScript # Source it, or use &
+} else {
+    Write-Warning "Install-Packages.ps1 not found at $installPackagesScript"
+}
 
-# Iterate over each setup file found and execute it
+# --- Update Windows PATH for newly installed tools (e.g., Cygwin) ---
+$updateEnvPathsScript = Join-Path -Path $ScriptBase -ChildPath "Setup\Update-EnvironmentPaths.ps1"
+if (Test-Path $updateEnvPathsScript) {
+    Write-Host "--- Updating environment paths... ---" -ForegroundColor Cyan
+    Write-Host "Executing: $updateEnvPathsScript"
+    . $updateEnvPathsScript # Source it, or use &
+} else {
+    Write-Warning "Update-EnvironmentPaths.ps1 not found at $updateEnvPathsScript"
+}
+
+# --- WSL Setup (Simplified and Optional by Default) ---
+$EnsureWSLBasicsScriptPath = Join-Path -Path $ScriptBase -ChildPath "Setup\Ensure-WSLBasics.ps1" # Ensure this is the correct path to your new script
+
+if (Test-Path $EnsureWSLBasicsScriptPath) {
+    Write-Host "--- WSL2 Basic Setup ---" -ForegroundColor Cyan
+    $runWslSetup = Read-Host "Do you want to run the basic WSL2 setup (ensures WSL/Ubuntu, OpenSSH server, and SSH port forwarding)? (y/N)"
+    if ($runWslSetup -eq 'y') {
+        if ($PSCmdlet.ShouldProcess("WSL Basic Setup", "Execute Ensure-WSLBasics.ps1 from $EnsureWSLBasicsScriptPath")) {
+            Write-Host "Executing: $EnsureWSLBasicsScriptPath"
+            try {
+                & $EnsureWSLBasicsScriptPath -ErrorAction Stop
+                Write-Host "Basic WSL2 setup script finished." -ForegroundColor Green
+            } catch {
+                Write-Warning "Error during basic WSL2 setup ($EnsureWSLBasicsScriptPath): $_"
+            }
+        }
+    } else {
+        Write-Host "Skipping basic WSL2 setup." -ForegroundColor DarkGray
+        Write-Host "If you need to set up WSL2 SSH forwarding, you can run '$EnsureWSLBasicsScriptPath' manually as Administrator."
+    }
+} else {
+    Write-Warning "WSL Basic Setup script (Ensure-WSLBasics.ps1) not found at: $EnsureWSLBasicsScriptPath"
+}
+
+# --- Run OTHER Scheduled Task Setups ---
+Write-Host "--- Processing other scheduled task setup scripts... ---" -ForegroundColor Cyan
+# Recursively get a list of SetupSchedule.ps1 files from the root of the repository
+$setupFiles = Get-ChildItem -Path $ScriptBase -Filter "SetupSchedule.ps1" -Recurse -ErrorAction SilentlyContinue
+
 foreach ($file in $setupFiles) {
-    # Full path to the SetupSchedule.ps1 script
-    $setupFilePath = $file.FullName
-    
-    # Check if the file exists to avoid errors
-    if (Test-Path -Path $setupFilePath) {
-        # Run the setup script
-        & $setupFilePath
+    # Exclude the WSL2IPUpdater's SetupSchedule.ps1 because Ensure-WSLBasics.ps1 handles it if the user opted in.
+    if ($file.FullName -notlike "*Scripts\WSL2IPUpdater\SetupSchedule.ps1*") {
+        Write-Host "Executing scheduled task setup: $($file.FullName)"
+        try {
+            & $file.FullName -ErrorAction Stop
+        } catch {
+            Write-Warning "Error executing $($file.FullName): $_"
+        }
+    } else {
+        Write-Host "Skipping $($file.FullName) here (handled by Ensure-WSLBasics.ps1 if user chose to run WSL setup)." -ForegroundColor DarkGray
     }
 }
 
-return
-
-# Ensure package managers are installed
-#Install-WingetPackageManager
-#Install-ChocolateyPackageManager
-#Install-ScoopPackageManager
-
-# Install programs
-$Programs = @(
-    @{ Name = "fzf"; WingetID = "junegunn.fzf"; ChocoID = "fzf"; ScoopID = "fzf"; Module = "" },
-    @{ Name = "PSFzf"; WingetID = ""; ChocoID = ""; ScoopID = ""; Module = "PSFzf" },
-    @{ Name = "ZLocation"; WingetID = ""; ChocoID = ""; ScoopID = ""; Module = "ZLocation" },
-    @{ Name = "eza"; WingetID = "eza.eza"; ChocoID = ""; ScoopID = "eza"; Module = "" },
-    @{ Name = "Atuin"; WingetID = ""; ChocoID = ""; ScoopID = "atuin"; Module = "" },
-    @{ Name = "direnv"; WingetID = "Direnv.Direnv"; ChocoID = "direnv"; ScoopID = "direnv"; Module = "" },
-    @{ Name = "PSReadLine"; WingetID = ""; ChocoID = ""; ScoopID = ""; Module = "PSReadLine" },
-    @{ Name = "posh-git"; WingetID = ""; ChocoID = ""; ScoopID = ""; Module = "posh-git" },
-    @{ Name = "oh-my-posh"; WingetID = "JanDeDobbeleer.OhMyPosh"; ChocoID = "oh-my-posh"; ScoopID = "oh-my-posh"; Module = "" },
-    @{ Name = "Terminal-Icons"; WingetID = ""; ChocoID = ""; ScoopID = ""; Module = "Terminal-Icons" },
-    @{ Name = "BurntToast"; WingetID = ""; ChocoID = ""; ScoopID = ""; Module = "BurntToast" },
-    @{ Name = "PSPing"; WingetID = ""; ChocoID = "psping"; ScoopID = "psping"; Module = "" },
-    @{ Name = "Git"; WingetID = "Git.Git"; ChocoID = "git"; ScoopID = "git"; Module = "" },
-    @{ Name = "PSScriptAnalyzer"; WingetID = ""; ChocoID = ""; ScoopID = ""; Module = "PSScriptAnalyzer" },
-    @{ Name = "TabExpansionPlusPlus"; WingetID = ""; ChocoID = ""; ScoopID = ""; Module = "TabExpansionPlusPlus" }
-)
-
-foreach ($Program in $Programs) {
-    Install-Program -ProgramName $Program.Name `
-                    -WingetID $Program.WingetID `
-                    -ChocoID $Program.ChocoID `
-                    -ScoopID $Program.ScoopID `
-                    -PowerShellModuleName $Program.Module
-}
-
-Write-Color -Message "All programs are now installed and up-to-date." -Type "Success"
-
-return
+Write-Host "--- Main Setup.ps1 script finished. ---" -ForegroundColor Green
+# return # Using return is generally safer than exit in scripts that might be sourced.
