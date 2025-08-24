@@ -11,6 +11,7 @@ dynamic/
 *.user
 *.userosscache
 *.sln.docstates
+*.restic*
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

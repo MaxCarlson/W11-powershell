@@ -177,8 +177,44 @@ if (Get-Command fnm -ErrorAction SilentlyContinue) {
     Log-Time 'FNM skipped'
 }
 
+# SSH/TMUX SETUP
+## Detect “am I over SSH?” by presence of SSH_CLIENT or SSH_CONNECTION
+# Add this to your Microsoft.PowerShell_profile.ps1
+# Enable ANSI / VT100 support for console title updates
+# ~/.config/powershell/Microsoft.PowerShell_profile.ps1
+
+# Enable ANSI / VT100 support for console title updates
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class Win32 {
+  public const int STD_OUTPUT_HANDLE = -11;
+  public const uint ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004;
+  [DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int nStdHandle);
+  [DllImport("kernel32.dll")] public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+  [DllImport("kernel32.dll")] public static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+}
+"@ -PassThru | Out-Null
+
+$hOut = [Win32]::GetStdHandle([Win32]::STD_OUTPUT_HANDLE)
+[uint32]$mode = 0
+[Win32]::GetConsoleMode($hOut, [ref]$mode)    | Out-Null
+[Win32]::SetConsoleMode($hOut, $mode -bor [Win32]::ENABLE_VIRTUAL_TERMINAL_PROCESSING) | Out-Null
+
+# Always update tmux pane title to remote cwd on each prompt
+function global:prompt {
+  $esc = [char]27
+  $bel = [char]7
+  $cwd = (Get-Location).Path
+  # DCS passthrough to tmux: ESC P tmux; ESC ]2;title BEL ESC \
+  Write-Host -NoNewline ("${esc}Ptmux;${esc}]2;${cwd}${bel}${esc}\\")
+  "PS $cwd> "
+}
+Log-Time 'TmuxSSH setup finished'
+
 $ChocolateyProfile = Join-Path $env:ChocolateyInstall 'helpers\chocolateyProfile.psm1'
 Import-ProfileModule -Path $ChocolateyProfile -Name 'Chocolatey Profile'
+Log-Time 'choco setup finished'
 
 # Conda initialization (uncomment if desired)
 # (& 'C:\Users\mcarls\anaconda3\shell\condabin\conda-hook.ps1') | Out-Null

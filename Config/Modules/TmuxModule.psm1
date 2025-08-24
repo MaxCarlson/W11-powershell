@@ -1,20 +1,4 @@
 # TmuxModule.psm1
-
-# Import Auto-Export helper (adjust path if needed)
-#
-. "$PSScriptRoot\AutoExportModule.psm1"
-
-# Import Guard
-if (-not $script:ModuleImportedListAliases) {
-    $script:ModuleImportedListAliases = $true
-} else {
-    Write-Debug -Message 'Attempting to import ListAliases twice!' `
-                -Channel 'Error' -Condition $DebugProfile -FileAndLine
-    return
-}
-
-# Capture existing aliases before we define our own
-$preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
 <#
 .SYNOPSIS
     Tmux integration module for PowerShell, mirroring Zsh/common tmux helpers.
@@ -28,6 +12,21 @@ $preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
     Version: 1.1
 #>
 
+# Import Auto-Export helper (adjust path if needed)
+#
+. "$PSScriptRoot\AutoExportModule.psm1"
+
+# Import Guard
+if (-not $script:ModuleImportedTmuxModule) {
+    $script:ModuleImportedTmuxModule = $true
+} else {
+    Write-Debug -Message 'Attempting to import TmuxModule twice!' `
+                -Channel 'Error' -Condition $DebugProfile -FileAndLine
+    return
+}
+
+# Capture existing aliases before we define our own
+$preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
 # --- Helper Function ---
 
 function Test-Tmux {
@@ -355,27 +354,6 @@ function tmd {
     Write-Verbose "Detaching tmux client."
     & tmux detach-client
 }
-
-# --- Aliases ---
-# Scope Global makes them available everywhere after module import.
-# Consider 'Script' or 'Local' if you prefer them less globally.
-Set-Alias -Name ts -Value ts -Scope Global -Description "Tmux: Attach/Switch/New session"
-Set-Alias -Name tsl -Value tsl -Scope Global -Description "Tmux: List sessions"
-Set-Alias -Name tsn -Value tsn -Scope Global -Description "Tmux: New/Attach session by name"
-Set-Alias -Name tsf -Value tsf -Scope Global -Description "Tmux: Fuzzy find session"
-Set-Alias -Name tsd -Value tsd -Scope Global -Description "Tmux: Fuzzy find detached session"
-Set-Alias -Name tsr -Value tsr -Scope Global -Description "Tmux: Re-attach last detached session"
-Set-Alias -Name tsnxt -Value tsnxt -Scope Global -Description "Tmux: Next available 'tsN' session"
-Set-Alias -Name tsrename -Value tsrename -Scope Global -Description "Tmux: Rename current session"
-Set-Alias -Name tmd -Value tmd -Scope Global -Description "Tmux: Detach client"
-
-# --- Module Export ---
-# By default, all functions are exported. Explicitly listing them is good practice.
-#Export-ModuleMember -Function Test-Tmux, ts, tsl, tsn, tsf, tsd, tsr, tsnxt, tsrename, tmd
-#Export-ModuleMember -Alias ts, tsl, tsn, tsf, tsd, tsr, tsnxt, tsrename, tmd
-
-#Write-Host "TmuxModule loaded. Available functions/aliases: ts, tsl, tsn, tsf, tsd, tsr, tsnxt, tsrename, tmd."
-
 # === Auto-export all new functions and aliases ===
 # (throws nothing if nothing new to export)
 Export-AutoExportFunctions -Exclude @()          # no functions to exclude
