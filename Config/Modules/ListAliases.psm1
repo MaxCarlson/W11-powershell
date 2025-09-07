@@ -1,7 +1,9 @@
 # File: Config/Modules/ListAliases.psm1
 
-# Import Auto-Export helper
-. "$PSScriptRoot\AutoExportModule.psm1"
+# Auto-export helper (guarded import)
+if (-not (Get-Module -Name AutoExportModule)) {
+    Import-Module "$PSScriptRoot\AutoExportModule.psm1" -ErrorAction Stop
+}
 
 # Import Guard
 if (-not $script:ModuleImportedListAliases) {
@@ -11,28 +13,25 @@ if (-not $script:ModuleImportedListAliases) {
     return
 }
 
-# Module debug wiring (matches your conventions)
-$script:MODULE_NAME        = 'ListAliases'
-$script:DEBUG_LISTALIASES  = $false
-$script:WRITE_TO_DEBUG     = ($DebugProfile -or $DEBUG_LISTALIASES)
+# Module debug wiring
+$script:MODULE_NAME       = 'ListAliases'
+$script:DEBUG_LISTALIASES = $false
+$script:WRITE_TO_DEBUG    = ($DebugProfile -or $DEBUG_LISTALIASES)
 
 # Bring in the generic glob expansion/invocation helper
-Import-Module -Name "$PSScriptRoot\NativeGlob.psm1" -ErrorAction Stop
+if (-not (Get-Module -Name NativeGlob)) {
+    Import-Module -Name "$PSScriptRoot\NativeGlob.psm1" -ErrorAction Stop
+}
 
 # Capture existing aliases before we define our own
 $preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
 
-# --- Thin eza wrapper using the generic invoker --------------------------------
+# --- Thin eza wrapper using the generic invoker (relative + leaf behavior on) ---
 function Invoke-Eza {
 <#
 .SYNOPSIS
-Calls eza with your preset options and PowerShell-style glob expansion.
-
-.DESCRIPTION
-Delegates to Invoke-NativeWithExpansion from NativeGlob.psm1, ensuring:
-- Globs like *.py expand on Windows/PowerShell.
-- Extra eza flags passed by the user are preserved.
-- '--' is inserted before paths to avoid option/filename ambiguity.
+Calls eza with your presets and PowerShell-style glob expansion, while keeping
+output concise (no absolute paths for simple globs).
 #>
     [CmdletBinding()]
     param(
@@ -40,11 +39,11 @@ Delegates to Invoke-NativeWithExpansion from NativeGlob.psm1, ensuring:
         [Parameter(ValueFromRemainingArguments=$true)]
         [string[]]$Rest
     )
-    Invoke-NativeWithExpansion -Command 'eza' -Options $Options -Rest $Rest -UseDoubleDash
+    Invoke-NativeWithExpansion -Command 'eza' -Options $Options -Rest $Rest -UseDoubleDash -PreferRelative -LeafForLocal
 }
 # ------------------------------------------------------------------------------
 
-# === Simplified Eza “ls” functions (now glob-aware, full set preserved) ===
+# === Simplified Eza “ls” functions (glob-aware; full set preserved) ===
 function l   { Invoke-Eza -Options @('--no-permissions','--git','--icons','--no-user') -Rest $args }
 function ls  { Invoke-Eza -Options @('-lah','--no-permissions','--git','--icons','--modified','--group-directories-first','--smart-group','--no-user') -Rest $args }
 function la  { Invoke-Eza -Options @('-a','--no-permissions','--git','--icons','--classify','--grid','--group-directories-first') -Rest $args }
@@ -63,26 +62,16 @@ function l3  { Invoke-Eza -Options @('--icons','--classify','--tree','--level=3'
 function l4  { Invoke-Eza -Options @('--icons','--classify','--tree','--level=4','--git') -Rest $args }
 function l5  { Invoke-Eza -Options @('--icons','--classify','--tree','--level=5','--git') -Rest $args }
 function lt1 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=1','--git') -Rest $args }
-function lt2 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=2','--git') -Rest $args }
+function lt2 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','level=2','--git') -Rest $args }
 function lt3 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=3','--git') -Rest $args }
 function lt4 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=4','--git') -Rest $args }
 function lt5 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=5','--git') -Rest $args }
 
 # === Utilities (kept from your original) ===
-function fddots {
-    param([int]$depth = 1)
-    fd --hidden --max-depth $depth '^\.' .
-}
-
-function fcount {
-    param([string]$Path = '.')
-    (Get-ChildItem -Path $Path -File).Count
-}
-
-function deldirs {
-    Get-ChildItem -Directory | Remove-Item -Recurse -Force
-}
+function fddots { param([int]$depth = 1) fd --hidden --max-depth $depth '^\.' . }
+function fcount { param([string]$Path = '.') (Get-ChildItem -Path $Path -File).Count }
+function deldirs { Get-ChildItem -Directory | Remove-Item -Recurse -Force }
 
 # === Auto-export all new functions and aliases ===
-Export-AutoExportFunctions -Exclude @()          # export all functions we just defined
+Export-AutoExportFunctions -Exclude @()
 Export-AutoExportAliases   -Exclude $preExistingAliases

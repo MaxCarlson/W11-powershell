@@ -1,7 +1,9 @@
 # File: Config/Modules/NativeGlob.psm1
 
-# Auto-export helper (adjust path if your helper lives elsewhere)
-. "$PSScriptRoot\AutoExportModule.psm1"
+# Auto-export helper (guarded import)
+if (-not (Get-Module -Name AutoExportModule)) {
+    Import-Module "$PSScriptRoot\AutoExportModule.psm1" -ErrorAction Stop
+}
 
 # Import Guard
 if (-not $script:ModuleImportedNativeGlob) {
@@ -11,10 +13,10 @@ if (-not $script:ModuleImportedNativeGlob) {
     return
 }
 
-# Module debug wiring (matches your conventions)
-$script:MODULE_NAME       = 'NativeGlob'
-$script:DEBUG_NATIVEGLOB  = $false
-$script:WRITE_TO_DEBUG    = ($DebugProfile -or $DEBUG_NATIVEGLOB)
+# Module debug wiring
+$script:MODULE_NAME      = 'NativeGlob'
+$script:DEBUG_NATIVEGLOB = $false
+$script:WRITE_TO_DEBUG   = ($DebugProfile -or $DEBUG_NATIVEGLOB)
 
 # Capture existing aliases before we define our own (for auto-export helper)
 $preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
@@ -22,34 +24,36 @@ $preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
 function Expand-GlobTokens {
 <#
 .SYNOPSIS
-Expands PowerShell wildcards for native-command arguments and classifies flags.
+Expands PowerShell wildcards for native-command args and classifies flags.
 
 .DESCRIPTION
-PowerShell does not expand globs for native executables. This function:
-- Splits incoming tokens into "flags" (start with '-') and potential paths.
-- Expands wildcards (including ** in PS7+) into full paths.
-- Returns Flags, Paths, and Unmatched (patterns with no matches).
+- Splits incoming tokens into flags (start with '-') and candidate paths.
+- Expands wildcards (supports ** in PS7+).
+- Emits relative paths (by default) instead of absolute, so tools like eza
+  don’t show long full paths.
+- For *simple* globs like '*.py' (no directory separators), emits just the
+  leaf filename to match normal `ll` behavior.
 
 .PARAMETER Tokens
-The raw tokens (e.g., from $args) that may contain flags and paths/globs.
+User tokens (flags and/or paths/globs). Usually pass $args.
+
+.PARAMETER PreferRelative
+If set (default), convert expanded paths to relative to the current directory.
+
+.PARAMETER LeafForLocal
+If set (default), and the original token had no path separators, output only
+the leaf name for each match (e.g., 'file.py').
 
 .OUTPUTS
-[pscustomobject] with properties:
-- Flags     : string[]
-- Paths     : string[] (fully-qualified)
-- Unmatched : string[]
-
-.EXAMPLE
-Expand-GlobTokens -Tokens @('*.py','-r','src/**\*.ps1')
-
-.EXAMPLE
-$exp = Expand-GlobTokens $args
-$exp.Paths
+[pscustomobject] with Flags, Paths, Unmatched arrays.
 #>
     [CmdletBinding()]
     param(
         [Parameter(ValueFromRemainingArguments=$true, Position=0)]
-        [string[]]$Tokens
+        [string[]]$Tokens,
+
+        [switch]$PreferRelative = $true,
+        [switch]$LeafForLocal   = $true
     )
 
     $flags     = New-Object System.Collections.Generic.List[string]
@@ -59,10 +63,9 @@ $exp.Paths
     foreach ($item in ($Tokens ?? @())) {
         if ([string]::IsNullOrWhiteSpace($item)) { continue }
 
-        if ($item.StartsWith('-')) {
-            $flags.Add($item)
-            continue
-        }
+        if ($item.StartsWith('-')) { $flags.Add($item); continue }
+
+        $tokenHasSep = $item -match '[\\/]|^\w:|^/'
 
         $hasWild = [System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($item)
         if ($hasWild) {
@@ -72,18 +75,29 @@ $exp.Paths
             } else {
                 $expanded = (Resolve-Path -Path $item -ErrorAction SilentlyContinue).Path
             }
-
-            if ($expanded) {
-                foreach ($p in $expanded) { $paths.Add($p) }
-            } else {
-                $unmatched.Add($item)
-            }
         } else {
             if (Test-Path -LiteralPath $item) {
-                $paths.Add((Resolve-Path -LiteralPath $item).Path)
+                $expanded = ,(Resolve-Path -LiteralPath $item -ErrorAction SilentlyContinue).Path
             } else {
-                $unmatched.Add($item)
+                $expanded = @()
             }
+        }
+
+        if (-not $expanded -or $expanded.Count -eq 0) {
+            $unmatched.Add($item)
+            continue
+        }
+
+        foreach ($p in $expanded) {
+            $out = $p
+            if ($PreferRelative) {
+                try { $out = Resolve-Path -LiteralPath $p -Relative -ErrorAction Stop } catch { $out = $p }
+            }
+            if ($LeafForLocal -and -not $tokenHasSep) {
+                # For simple patterns like '*.py', prefer just the filename
+                $out = Split-Path -Path $out -Leaf
+            }
+            $paths.Add($out)
         }
     }
 
@@ -101,32 +115,25 @@ $exp.Paths
 function Invoke-NativeWithExpansion {
 <#
 .SYNOPSIS
-Invokes a native command with PowerShell-style glob expansion.
-
-.DESCRIPTION
-Generic wrapper for native tools that need glob expansion. It:
-- Validates the command exists on PATH.
-- Accepts preset Options and the user's Tokens (flags and paths/globs).
-- Expands globs, preserves extra flags, and optionally inserts '--'
-  before paths to prevent option/filename ambiguity.
+Invokes a native command with proper glob expansion.
 
 .PARAMETER Command
-The native executable to invoke (e.g., 'eza', 'rg', 'fd', etc.).
+Executable to run (e.g., 'eza', 'rg').
 
 .PARAMETER Options
-Preset flags for the specific tool/alias (e.g., '-lah','--icons').
+Preset flags for the tool.
 
 .PARAMETER Rest
-User-supplied tokens (flags and/or paths/globs). Usually pass $args here.
+User tokens (flags and/or paths/globs). Usually $args.
 
 .PARAMETER UseDoubleDash
-If set (default), inserts '--' before any paths to prevent mis-parsing.
+Insert '--' before paths to prevent them being parsed as options.
 
-.EXAMPLE
-Invoke-NativeWithExpansion -Command 'eza' -Options @('-lah','--icons') -Rest $args -UseDoubleDash
+.PARAMETER PreferRelative
+Emit relative paths (default: on).
 
-.EXAMPLE
-Invoke-NativeWithExpansion -Command 'rg' -Options @('--line-number') -Rest @('TODO','src/**/*.py')
+.PARAMETER LeafForLocal
+For tokens without path separators, emit only leaf names (default: on).
 #>
     [CmdletBinding()]
     param(
@@ -134,7 +141,9 @@ Invoke-NativeWithExpansion -Command 'rg' -Options @('--line-number') -Rest @('TO
         [string[]]$Options,
         [Parameter(ValueFromRemainingArguments=$true)]
         [string[]]$Rest,
-        [switch]$UseDoubleDash = $true
+        [switch]$UseDoubleDash = $true,
+        [switch]$PreferRelative = $true,
+        [switch]$LeafForLocal   = $true
     )
 
     $cmdPath = Get-Command $Command -ErrorAction SilentlyContinue
@@ -143,7 +152,7 @@ Invoke-NativeWithExpansion -Command 'rg' -Options @('--line-number') -Rest @('TO
         return
     }
 
-    $exp = Expand-GlobTokens $Rest
+    $exp = Expand-GlobTokens -Tokens $Rest -PreferRelative:$PreferRelative -LeafForLocal:$LeafForLocal
 
     $argsForCmd = @()
     if ($Options)  { $argsForCmd += $Options }
@@ -162,5 +171,5 @@ Invoke-NativeWithExpansion -Command 'rg' -Options @('--line-number') -Rest @('TO
 }
 
 # === Auto-export all new functions and aliases ===
-Export-AutoExportFunctions -Exclude @()          # export all functions we just defined
+Export-AutoExportFunctions -Exclude @()
 Export-AutoExportAliases   -Exclude $preExistingAliases
