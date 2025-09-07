@@ -4,3 +4,29 @@
 Set-PSReadLineOption -HistorySearchCursorMovesToEnd
 Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward
 Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
+
+# Predictive Intellegence
+Set-PSReadLineOption -PredictionSource History
+
+# Add command to history without executing
+$parameters = @{
+    Key = 'Alt+w'
+    BriefDescription = 'SaveInHistory'
+    LongDescription = 'Save current line in history but do not execute'
+    ScriptBlock = {
+      param($key, $arg)   # The arguments are ignored in this example
+
+# GetBufferState gives us the command line (with the cursor position)
+      $line = $null
+      $cursor = $null
+      [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line,
+        [ref]$cursor)
+
+# AddToHistory saves the line in history, but does not execute it.
+      [Microsoft.PowerShell.PSConsoleReadLine]::AddToHistory($line)
+
+# RevertLine is like pressing Escape.
+      [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+  }
+}
+Set-PSReadLineKeyHandler @parameters
