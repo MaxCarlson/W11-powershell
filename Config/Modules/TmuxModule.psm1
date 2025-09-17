@@ -14,7 +14,9 @@
 
 # Import Auto-Export helper (adjust path if needed)
 #
-. "$PSScriptRoot\AutoExportModule.psm1"
+if (-not (Get-Module -Name AutoExportModule)) {
+    Import-Module "$PSScriptRoot\AutoExportModule.psm1" -ErrorAction Stop
+}
 
 # Import Guard
 if (-not $script:ModuleImportedTmuxModule) {
