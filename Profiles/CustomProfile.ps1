@@ -15,7 +15,34 @@ $global:SessionStartTime = Get-Date
 $global:DebugProfile = $false
 
 # --- Base Paths ---
-$global:PWSH_REPO = "$env:USERPROFILE\Repos\W11-powershell"
+# Dynamically detect W11-powershell repo location
+if ($env:PWSH_REPO -and (Test-Path $env:PWSH_REPO -PathType Container)) {
+    # Use environment variable if set
+    $global:PWSH_REPO = $env:PWSH_REPO
+} elseif ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "..\Config\Modules"))) {
+    # Detect from profile script location (if hard-linked from W11-powershell\Profiles\)
+    $global:PWSH_REPO = Split-Path $PSScriptRoot -Parent
+} else {
+    # Fallback: try common locations
+    $possiblePaths = @(
+        "$env:USERPROFILE\src\W11-powershell"
+        "$env:USERPROFILE\Repos\W11-powershell"
+        "C:\Projects\W11-powershell"
+    )
+    $found = $false
+    foreach ($path in $possiblePaths) {
+        if (Test-Path $path -PathType Container) {
+            $global:PWSH_REPO = $path
+            $found = $true
+            break
+        }
+    }
+    if (-not $found) {
+        Write-Warning "W11-powershell repository path not found. Checked: $($possiblePaths -join ', ')"
+        Write-Warning "Set `$env:PWSH_REPO manually or ensure profile is in W11-powershell\Profiles\"
+        $global:PWSH_REPO = "$env:USERPROFILE\Repos\W11-powershell"  # Last resort default
+    }
+}
 if (-not (Test-Path $global:PWSH_REPO -PathType Container)) {
     Write-Warning "Repository path not found: $($global:PWSH_REPO)"
 }
@@ -212,8 +239,12 @@ function global:prompt {
 }
 Log-Time 'TmuxSSH setup finished'
 
-$ChocolateyProfile = Join-Path $env:ChocolateyInstall 'helpers\chocolateyProfile.psm1'
-Import-ProfileModule -Path $ChocolateyProfile -Name 'Chocolatey Profile'
+if ($env:ChocolateyInstall) {
+    $ChocolateyProfile = Join-Path $env:ChocolateyInstall 'helpers\chocolateyProfile.psm1'
+    Import-ProfileModule -Path $ChocolateyProfile -Name 'Chocolatey Profile'
+} else {
+    Write-Debug "Chocolatey not installed, skipping." -Channel Information -Condition $global:DebugProfile
+}
 Log-Time 'choco setup finished'
 
 # Conda initialization (uncomment if desired)
@@ -223,18 +254,16 @@ Log-Time 'choco setup finished'
 
 # Oh-My-Posh
 if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
-    $ompTheme = "$env:POSH_THEMES_PATH\atomic.omp.json"
-    if (Test-Path $ompTheme) {
-        try {
-            oh-my-posh init pwsh --config $ompTheme | Invoke-Expression
-            Log-Time 'oh-my-posh init finished'
-        } catch {
-            Write-Warning "Failed OMP init: $($_.Exception.Message)"
-            Log-Time 'oh-my-posh init failed'
-        }
-    } else {
-        Write-Warning "OMP theme not found: $ompTheme"
-        Log-Time 'oh-my-posh skipped (theme missing)'
+    try {
+        # Use theme URL - oh-my-posh version 8+ uses GitHub URLs for themes
+        # Popular themes: atomic, paradox, jandedobbeleer, powerlevel10k_rainbow
+        # Change 'atomic' in the URL below to use a different theme
+        $ompTheme = 'https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json'
+        oh-my-posh init pwsh --config $ompTheme | Invoke-Expression
+        Log-Time 'oh-my-posh init finished'
+    } catch {
+        Write-Warning "Failed OMP init: $($_.Exception.Message)"
+        Log-Time 'oh-my-posh init failed'
     }
 } else {
     Write-Debug "oh-my-posh not found, skipping." -Channel Information -Condition $global:DebugProfile
@@ -248,16 +277,32 @@ if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
 # Resolve DOTFILES root (edit this if your dotfiles live elsewhere)
 $dotfiles = $env:DOTFILES
 if (-not $dotfiles -or -not (Test-Path $dotfiles)) {
-    # Fallback default—change to your actual dotfiles path if needed
-    $dotfiles = Join-Path $env:USERPROFILE 'dotfiles'
+    # Fallback: try common locations
+    $possibleDotfiles = @(
+        "$env:USERPROFILE\src\dotfiles"
+        "$env:USERPROFILE\Repos\dotfiles"
+        "$env:USERPROFILE\dotfiles"
+        "C:\dotfiles"
+    )
+    foreach ($path in $possibleDotfiles) {
+        if (Test-Path $path) {
+            $dotfiles = $path
+            break
+        }
+    }
+    if (-not $dotfiles) {
+        $dotfiles = "$env:USERPROFILE\dotfiles"  # Last resort
+    }
 }
 
 $dyn = Join-Path $dotfiles 'dynamic'
 $psAliases = Join-Path $dyn 'setup_pyscripts_aliases.ps1'
 $psFuncs   = Join-Path $dyn 'setup_pyscripts_functions.ps1'
+$venvActivation = Join-Path $dyn 'venv_auto_activation.ps1'
 
 if (Test-Path $psAliases) { . $psAliases }
 if (Test-Path $psFuncs)   { . $psFuncs   }
+if (Test-Path $venvActivation) { . $venvActivation }
 # === END: Generated Python tool aliases/functions for PowerShell ===
 
 # --- Final Module Loader Summary as last output ---
