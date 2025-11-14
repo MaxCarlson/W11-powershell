@@ -90,8 +90,8 @@ Write-Color "Executing: $cmd" Yellow
 cmd /c $cmd | Out-Null
 
 if (Test-Path $LinkPath) {
-    Write-Color "✔ Link created: $LinkPath → $TargetPath" Green
+    Write-Color "OK: Link created: $LinkPath -> $TargetPath" Green
 } else {
-    Write-Color "✖ Failed to create link." Red
+    Write-Color "ERROR: Failed to create link." Red
     exit 1
 }

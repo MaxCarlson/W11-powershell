@@ -402,3 +402,4 @@ FodyWeavers.xsd
 *.sln.iml
 Scripts/EnviormentVariables/path_log.txt
 Scripts/Profiles/ProfileDefaultLocation.txt
+Profiles/ProfileBackup/

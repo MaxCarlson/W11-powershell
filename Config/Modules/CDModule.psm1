@@ -91,11 +91,24 @@ $originalSetLocation = Get-Command Set-Location -CommandType Cmdlet
 
 # zoxide version
 
-# Ensure zoxide is installed and accessible
+# Initialize zoxide if installed
+if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+    # Initialize zoxide to create the z command
+    if (-not (Get-Command z -ErrorAction SilentlyContinue)) {
+        try {
+            Invoke-Expression (& zoxide init powershell | Out-String)
+        } catch {
+            Write-Warning "Failed to initialize zoxide: $_"
+        }
+    }
+} else {
+    Write-Warning "zoxide not found. Install it with: winget install ajeetdsouza.zoxide"
+}
+
+# Check if z command is available after initialization
 if (-not (Get-Command z -ErrorAction SilentlyContinue)) {
-    # TODO: Place non-zoxide code in here?
-    Write-Error "zoxide (z) is not installed or accessible. Please install it first."
-    return
+    Write-Warning "zoxide (z command) not available. CDModule will work with limited functionality."
+    # Don't return - allow module to load with other functions
 }
 
 # Alias cd to z (zoxide) directly
