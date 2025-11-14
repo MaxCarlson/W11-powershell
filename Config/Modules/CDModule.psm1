@@ -11,6 +11,8 @@ function cddl { Set-Location "$HOME\Downloads\"}
 function cdobs { Set-Location "$HOME\Documents\Obsidian-Vault\" }
 function cdsrc { Set-Location "$HOME\Repos\" }
 function cds { Set-Location "$HOME\Repos\scripts\" }
+function cdsm { Set-Location "$HOME\Repos\scripts\modules\" }
+function cdspy { Set-Location "$HOME\Repos\scripts\pyscripts\" }
 function cdsps { Set-Location "$HOME\Repos\scripts\pscripts\" }
 
 function cdre { cdsrc }
