@@ -5,20 +5,86 @@ if (-not $global:ModuleImportedCDModule) {
     return
 }
 
-# Alias cd to our custom Set-Location function
+# Directory navigation functions using dynamic paths from profile
+# These paths are auto-detected in CustomProfile.ps1
+
+# Standard Windows directories
 function cdd { Set-Location "$HOME\Documents\" }
 function cddl { Set-Location "$HOME\Downloads\"}
 function cdobs { Set-Location "$HOME\Documents\Obsidian-Vault\" }
-function cdsrc { Set-Location "$HOME\Repos\" }
-function cds { Set-Location "$HOME\Repos\scripts\" }
-function cdsm { Set-Location "$HOME\Repos\scripts\modules\" }
-function cdspy { Set-Location "$HOME\Repos\scripts\pyscripts\" }
-function cdsps { Set-Location "$HOME\Repos\scripts\pscripts\" }
+
+# Repository directories (dynamically detected)
+function cdsrc {
+    if ($global:REPOS_DIR -and (Test-Path $global:REPOS_DIR)) {
+        Set-Location $global:REPOS_DIR
+    } else {
+        Write-Warning "REPOS_DIR not found. Set `$env:SCRIPTS_REPO or `$env:PWSH_REPO"
+        Set-Location "$HOME\Repos\"
+    }
+}
+
+function cds {
+    if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
+        Set-Location $global:SCRIPTS_REPO
+    } else {
+        Write-Warning "SCRIPTS_REPO not found. Set `$env:SCRIPTS_REPO"
+        Set-Location "$HOME\Repos\scripts\"
+    }
+}
+
+function cdsm {
+    if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
+        Set-Location (Join-Path $global:SCRIPTS_REPO "modules")
+    } else {
+        Set-Location "$HOME\Repos\scripts\modules\"
+    }
+}
+
+function cdspy {
+    if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
+        Set-Location (Join-Path $global:SCRIPTS_REPO "pyscripts")
+    } else {
+        Set-Location "$HOME\Repos\scripts\pyscripts\"
+    }
+}
+
+function cdsps {
+    if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
+        Set-Location (Join-Path $global:SCRIPTS_REPO "pscripts")
+    } else {
+        Set-Location "$HOME\Repos\scripts\pscripts\"
+    }
+}
 
 function cdre { cdsrc }
-function cdpwsh { Set-Location "$HOME\Repos\W11-powershell\" }
+
+function cdpwsh {
+    if ($global:PWSH_REPO -and (Test-Path $global:PWSH_REPO)) {
+        Set-Location $global:PWSH_REPO
+    } else {
+        Write-Warning "PWSH_REPO not found. Set `$env:PWSH_REPO"
+        Set-Location "$HOME\Repos\W11-powershell\"
+    }
+}
+
 function cdps { cdpwsh }
-function cdmo { Set-Location "$HOME\Repos\W11-powershell\Config\Modules"}
+
+function cdmo {
+    if ($global:PWSH_REPO -and (Test-Path $global:PWSH_REPO)) {
+        Set-Location (Join-Path $global:PWSH_REPO "Config\Modules")
+    } else {
+        Set-Location "$HOME\Repos\W11-powershell\Config\Modules"
+    }
+}
+
+function cddot {
+    if ($global:DOTFILES_REPO -and (Test-Path $global:DOTFILES_REPO)) {
+        Set-Location $global:DOTFILES_REPO
+    } else {
+        Write-Warning "DOTFILES_REPO not found. Set `$env:DOTFILES_REPO"
+        Set-Location "$HOME\dotfiles\"
+    }
+}
 function cdtor { Set-Location "C:\Torrents"}
 function cdtord { Set-Location "D:\Torrents"}
 function cdpo { Set-Location "D:\Pictures\Saved\" }
