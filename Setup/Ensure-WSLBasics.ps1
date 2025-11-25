@@ -148,7 +148,7 @@ if (Test-Path $UpdateIpScriptPath) {
             & $UpdateIpScriptPath
             Write-Host "WSL IP and Port Forwarding update script executed." -ForegroundColor Green
         } catch {
-            Write-Warning "Error executing $UpdateIpScriptPath: $_"
+            Write-Warning ("Error executing {0}: {1}" -f $UpdateIpScriptPath, $_)
         }
     }
 } else {
@@ -165,7 +165,7 @@ if (Test-Path $ScheduleSetupScriptPath) {
             & $ScheduleSetupScriptPath
             Write-Host "WSL IP Updater scheduling script executed." -ForegroundColor Green
         } catch {
-            Write-Warning "Error executing $ScheduleSetupScriptPath: $_"
+            Write-Warning ("Error executing {0}: {1}" -f $ScheduleSetupScriptPath, $_)
         }
     }
 } else {

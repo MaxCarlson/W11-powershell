@@ -17,23 +17,102 @@ $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $listsDir = Join-Path $PSScriptRoot "InstalledPackages" "Lists" # Corrected path
 $masterFile = Join-Path $listsDir 'master.packages.txt'
 $machineFile = Join-Path $listsDir "machine.$($env:COMPUTERNAME).packages.txt"
+$catalogFile = Join-Path $listsDir 'package-catalog.json'
+$selectionFile = Join-Path $listsDir 'selected.packages.txt'
+$ignoredLogFile = Join-Path $listsDir 'ignored.auto.txt'
 
 if ($DryRun) {
     Write-Host "--- DRY RUN MODE ENABLED --- No changes will be made." -ForegroundColor Magenta
 }
 
-# 1) Load desired package lists
-if (-not (Test-Path $masterFile)) {
-    Write-Warning "Master package list not found: $masterFile. Cannot proceed."
-    return
+# 1) Load desired package lists (prefer curated selection, fallback to master)
+function Get-SelectionFromCatalog {
+    param([string]$CatalogPath)
+    $selected = @()
+    try {
+        $catalogJson = Get-Content -Path $CatalogPath -Raw -ErrorAction Stop | ConvertFrom-Json
+        foreach ($cat in $catalogJson.categories) {
+            foreach ($pkg in $cat.packages) {
+                $id = $pkg.id
+                if ($pkg.defaultSelected -eq $true) {
+                    $selected += $id
+                }
+            }
+        }
+    } catch {
+        Write-Warning "Failed to read package catalog at $CatalogPath: $_"
+    }
+    return $selected | Sort-Object -Unique
 }
-$masterList  = Get-Content $masterFile -ErrorAction SilentlyContinue | Where-Object { $_ -match "^\w+:.+" -and $_ -notmatch "^\s*#" }
+
+$sourceLabel = ""
+if (Test-Path $selectionFile) {
+    $selectionList = Get-Content $selectionFile -ErrorAction SilentlyContinue | Where-Object { $_ -match "^\w+:.+" -and $_ -notmatch "^\s*#" }
+    $sourceLabel = "selection file"
+} elseif (Test-Path $catalogFile) {
+    $selectionList = Get-SelectionFromCatalog -CatalogPath $catalogFile
+    if ($selectionList.Count -gt 0) {
+        Write-Host "No selection file found; using catalog defaults and writing $selectionFile" -ForegroundColor DarkGray
+        $selectionList | Set-Content -Path $selectionFile -Encoding UTF8
+        $sourceLabel = "catalog defaults"
+    } else {
+        $selectionList = @()
+    }
+} else {
+    $selectionList = @()
+}
+
 $machineList = if (Test-Path $machineFile) { Get-Content $machineFile -ErrorAction SilentlyContinue | Where-Object { $_ -match "^\w+:.+" -and $_ -notmatch "^\s*#" } } else { @() }
 
-$desiredPackagesAndEnvs = ($masterList + $machineList) | Sort-Object -Unique
+if ($selectionList.Count -gt 0) {
+    $desiredPackagesAndEnvs = ($selectionList + $machineList) | Sort-Object -Unique
+    Write-Host "Using curated selection ($sourceLabel) + machine overrides." -ForegroundColor Cyan
+} else {
+    if (-not (Test-Path $masterFile)) {
+        Write-Warning "Master package list not found: $masterFile. Cannot proceed."
+        return
+    }
+    $masterList  = Get-Content $masterFile -ErrorAction SilentlyContinue | Where-Object { $_ -match "^\w+:.+" -and $_ -notmatch "^\s*#" }
+    $desiredPackagesAndEnvs = ($masterList + $machineList) | Sort-Object -Unique
+    Write-Host "Using master package list (+ machine overrides)." -ForegroundColor Cyan
+}
+
+# Filter out junk/unsupported entries
+$allowedManagers = @('winget','choco','cygwin','cargo','psmodule','mamba_env')
+$skipPatterns = @(
+    '^arp\\',
+    '^msix\\',
+    '^steam app',
+    '^appwork\.jdownloader'
+) 
+$validDesired = [System.Collections.Generic.List[string]]::new()
+$ignored = [System.Collections.Generic.List[string]]::new()
+foreach ($entry in $desiredPackagesAndEnvs) {
+    if (-not ($entry -match '^(?<mgr>[^:]+):(?<rest>.+)$')) {
+        $ignored.Add($entry)
+        continue
+    }
+    $mgr = $Matches['mgr'].ToLower()
+    $rest = $Matches['rest']
+    if (-not ($allowedManagers -contains $mgr)) {
+        $ignored.Add($entry)
+        continue
+    }
+    $restLower = $rest.ToLower()
+    if ($skipPatterns | Where-Object { $restLower -match $_ }) {
+        $ignored.Add($entry)
+        continue
+    }
+    $validDesired.Add("$mgr:$rest")
+}
+$desiredPackagesAndEnvs = $validDesired | Sort-Object -Unique
+if ($ignored.Count -gt 0) {
+    $ignored | Set-Content -Path $ignoredLogFile -Encoding UTF8
+    Write-Host ("Ignored {0} entries (logged to {1})." -f $ignored.Count, $ignoredLogFile) -ForegroundColor DarkGray
+}
 
 if ($desiredPackagesAndEnvs.Count -eq 0) {
-    Write-Host "No desired packages or environment definitions found in lists."
+    Write-Host "No desired packages or environment definitions found after filtering."
     return
 }
 Write-Host "Total unique desired packages/env definitions: $($desiredPackagesAndEnvs.Count)"

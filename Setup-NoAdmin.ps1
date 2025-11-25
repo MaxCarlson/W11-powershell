@@ -8,55 +8,30 @@ $ErrorActionPreference = 'Stop'
 $ScriptBase = $PSScriptRoot
 Write-Host "Setup script running from: $ScriptBase" -ForegroundColor Cyan
 
-# --- Global Variable for Repository Root ---
-$env:PWSH_REPO = $ScriptBase
-Write-Host "Setting PWSH_REPO environment variable for this session to: $($env:PWSH_REPO)" -ForegroundColor Green
-
-# --- User-Level Environment Variable Setup ---
-Write-Host ""
-Write-Host "--- Setting user-level environment variables... ---" -ForegroundColor Cyan
-try {
-    # Set PWSH_REPO permanently at user level
-    [System.Environment]::SetEnvironmentVariable('PWSH_REPO', $ScriptBase, [System.EnvironmentVariableTarget]::User)
-    Write-Host "OK: Set PWSH_REPO user environment variable: $ScriptBase" -ForegroundColor Green
-} catch {
-    Write-Warning "Could not set user environment variable: $_"
+# --- Shared user-level setup (same core as admin script) ---
+$sharedUserSetup = Join-Path $ScriptBase "Setup\UserSetupCore.ps1"
+if (Test-Path $sharedUserSetup) {
+    . $sharedUserSetup -ScriptBase $ScriptBase
+} else {
+    Write-Warning "Shared user setup not found at $sharedUserSetup"
 }
 
-# --- Profile Linking ---
+# --- PowerShell + PSReadLine (current user scope) ---
 Write-Host ""
-Write-Host "--- Setting up PowerShell profile link... ---" -ForegroundColor Cyan
-$linkScript = Join-Path $ScriptBase "Profiles\HardLinkProfile.ps1"
-if (Test-Path $linkScript) {
-    $currentProfile = "$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-
-    # Check if profile already points to CustomProfile.ps1
-    if (Test-Path $currentProfile) {
-        $item = Get-Item $currentProfile -ErrorAction SilentlyContinue
-        if ($item.LinkType -eq 'HardLink') {
-            Write-Host "OK: Profile already hard-linked" -ForegroundColor Green
-        } else {
-            Write-Host "Profile exists but not linked. Running HardLinkProfile.ps1..." -ForegroundColor Yellow
-            & $linkScript -Replace 'y'
+Write-Host "--- Checking PowerShell + PSReadLine (user) ---" -ForegroundColor Cyan
+if (-not (Get-Module -ListAvailable -Name PSReadLine)) {
+    try {
+        if (-not (Get-Module -ListAvailable -Name PowerShellGet)) {
+            Write-Host "Installing PowerShellGet (current user)..." -ForegroundColor DarkGray
+            Install-Module -Name PowerShellGet -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
         }
-    } else {
-        Write-Host "Creating profile link..." -ForegroundColor Yellow
-        & $linkScript
+        Install-Module -Name PSReadLine -Force -Scope CurrentUser -AllowClobber -ErrorAction Stop
+        Write-Host "PSReadLine installed for current user." -ForegroundColor Green
+    } catch {
+        Write-Warning "PSReadLine installation (user) failed: $_"
     }
 } else {
-    Write-Warning "HardLinkProfile.ps1 not found at: $linkScript"
-    Write-Host "You can manually create the link later by running:" -ForegroundColor Yellow
-    Write-Host "  .\Profiles\HardLinkProfile.ps1" -ForegroundColor Yellow
-}
-
-# --- Update CustomProfile.ps1 Path Detection ---
-Write-Host ""
-Write-Host "--- Checking CustomProfile.ps1 path configuration... ---" -ForegroundColor Cyan
-$customProfile = Join-Path $ScriptBase "Profiles\CustomProfile.ps1"
-if (Test-Path $customProfile) {
-    Write-Host "OK: CustomProfile.ps1 uses dynamic path detection" -ForegroundColor Green
-} else {
-    Write-Warning "CustomProfile.ps1 not found at: $customProfile"
+    Write-Host "PSReadLine already available." -ForegroundColor DarkGray
 }
 
 # --- Integration with scripts repo ---

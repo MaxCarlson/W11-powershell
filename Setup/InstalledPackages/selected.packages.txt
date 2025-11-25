@@ -1,0 +1,11 @@
+# Generated default selections from package-catalog.json (core + cli + dev-tools)
+winget:Microsoft.PowerShell
+psmodule:PSReadLine
+winget:Git.Git
+winget:JanDeDobbeleer.OhMyPosh
+winget:ajeetdsouza.zoxide
+winget:eza-community.eza
+winget:BurntSushi.ripgrep
+winget:sharkdp.fd
+winget:Python.Python.3.12
+winget:GitHub.cli

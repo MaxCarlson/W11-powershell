@@ -379,3 +379,4 @@ if (Test-Path (Join-Path $d "setup_pyscripts_aliases.ps1")) { . (Join-Path $d "s
 if (Test-Path (Join-Path $d "setup_pyscripts_functions.ps1")) { . (Join-Path $d "setup_pyscripts_functions.ps1") }
 if (Test-Path $m) { Import-Module $m -ErrorAction SilentlyContinue }
 # ----- end added by setup_pwsh_profile.py -----
+#

@@ -25,10 +25,41 @@ Assert-Administrator-Main
 $ScriptBase = $PSScriptRoot
 Write-Host "Setup script running from: $ScriptBase" -ForegroundColor Yellow
 
-# --- Global Variable for Repository Root (if needed by child scripts) ---
-# If your scripts consistently use $env:PWSH_REPO, define it robustly.
-$env:PWSH_REPO = $ScriptBase
-Write-Host "Setting PWSH_REPO environment variable for this session to: $($env:PWSH_REPO)" -ForegroundColor DarkGray
+# --- Shared user-level setup (idempotent, also used by Setup-NoAdmin.ps1) ---
+$sharedUserSetup = Join-Path $ScriptBase "Setup\UserSetupCore.ps1"
+if (Test-Path $sharedUserSetup) {
+    . $sharedUserSetup -ScriptBase $ScriptBase
+} else {
+    Write-Warning "Shared user setup not found at $sharedUserSetup"
+}
+
+# --- Core prerequisites that need admin ---
+Write-Host "--- Ensuring PowerShell + PSReadLine ---" -ForegroundColor Cyan
+if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+    try {
+        winget install --id Microsoft.PowerShell -e --accept-package-agreements --accept-source-agreements
+        Write-Host "PowerShell (pwsh) installation command executed." -ForegroundColor Green
+    } catch {
+        Write-Warning ("PowerShell installation failed: {0}" -f $_)
+    }
+} else {
+    Write-Host "PowerShell (pwsh) already available." -ForegroundColor DarkGray
+}
+
+if (-not (Get-Module -ListAvailable -Name PSReadLine)) {
+    try {
+        if (-not (Get-Module -ListAvailable -Name PowerShellGet)) {
+            Write-Host "Installing PowerShellGet (all users)..." -ForegroundColor DarkGray
+            Install-Module -Name PowerShellGet -Force -Scope AllUsers -AllowClobber -ErrorAction Stop
+        }
+        Install-Module -Name PSReadLine -Force -Scope AllUsers -AllowClobber -ErrorAction Stop
+        Write-Host "PSReadLine installed for all users." -ForegroundColor Green
+    } catch {
+        Write-Warning ("PSReadLine installation failed: {0}" -f $_)
+    }
+} else {
+    Write-Host "PSReadLine already installed." -ForegroundColor DarkGray
+}
 
 # --- Initial Setup Scripts ---
 Write-Host "--- Running initial setup scripts... ---" -ForegroundColor Cyan
@@ -47,7 +78,7 @@ foreach ($scriptRelPath in $initialSetupScripts) {
                 & $scriptFullPath -ErrorAction Stop
             }
         } catch {
-            Write-Warning "Error executing $scriptFullPath: $_"
+            Write-Warning ("Error executing {0}: {1}" -f $scriptFullPath, $_)
         }
     } else {
         Write-Warning "Initial setup script not found: $scriptFullPath"
@@ -62,7 +93,7 @@ if (Test-Path $setupExecutablesScript) {
     try {
         & $setupExecutablesScript -ErrorAction Stop
     } catch {
-        Write-Warning "Error executing $setupExecutablesScript: $_"
+        Write-Warning ("Error executing {0}: {1}" -f $setupExecutablesScript, $_)
     }
 } else {
     Write-Warning "SetupExecutables.ps1 not found at: $setupExecutablesScript"
@@ -106,13 +137,16 @@ if (Test-Path $EnsureWSLBasicsScriptPath) {
     Write-Host "--- WSL2 Basic Setup ---" -ForegroundColor Cyan
     $runWslSetup = Read-Host "Do you want to run the basic WSL2 setup (ensures WSL/Ubuntu, OpenSSH server, and SSH port forwarding)? (y/N)"
     if ($runWslSetup -eq 'y') {
-        if ($PSCmdlet.ShouldProcess("WSL Basic Setup", "Execute Ensure-WSLBasics.ps1 from $EnsureWSLBasicsScriptPath")) {
+        $shouldProcess = if ($PSCmdlet) {
+            $PSCmdlet.ShouldProcess("WSL Basic Setup", "Execute Ensure-WSLBasics.ps1 from $EnsureWSLBasicsScriptPath")
+        } else { $true }
+        if ($shouldProcess) {
             Write-Host "Executing: $EnsureWSLBasicsScriptPath"
             try {
                 & $EnsureWSLBasicsScriptPath -ErrorAction Stop
                 Write-Host "Basic WSL2 setup script finished." -ForegroundColor Green
             } catch {
-                Write-Warning "Error during basic WSL2 setup ($EnsureWSLBasicsScriptPath): $_"
+                Write-Warning ("Error during basic WSL2 setup ({0}): {1}" -f $EnsureWSLBasicsScriptPath, $_)
             }
         }
     } else {
@@ -135,7 +169,7 @@ foreach ($file in $setupFiles) {
         try {
             & $file.FullName -ErrorAction Stop
         } catch {
-            Write-Warning "Error executing $($file.FullName): $_"
+            Write-Warning ("Error executing {0}: {1}" -f $file.FullName, $_)
         }
     } else {
         Write-Host "Skipping $($file.FullName) here (handled by Ensure-WSLBasics.ps1 if user chose to run WSL setup)." -ForegroundColor DarkGray

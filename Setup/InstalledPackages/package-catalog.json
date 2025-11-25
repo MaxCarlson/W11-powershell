@@ -1,0 +1,52 @@
+{
+  "categories": [
+    {
+      "name": "core",
+      "description": "Shell + prompt essentials",
+      "defaultSelected": true,
+      "packages": [
+        { "id": "winget:Microsoft.PowerShell", "label": "PowerShell 7" },
+        { "id": "psmodule:PSReadLine", "label": "PSReadLine (module)" },
+        { "id": "winget:Git.Git", "label": "Git" },
+        { "id": "winget:JanDeDobbeleer.OhMyPosh", "label": "Oh My Posh" }
+      ]
+    },
+    {
+      "name": "cli",
+      "description": "Everyday CLI tools",
+      "defaultSelected": true,
+      "packages": [
+        { "id": "winget:ajeetdsouza.zoxide", "label": "zoxide" },
+        { "id": "winget:eza-community.eza", "label": "eza" },
+        { "id": "winget:BurntSushi.ripgrep", "label": "ripgrep" },
+        { "id": "winget:sharkdp.fd", "label": "fd" }
+      ]
+    },
+    {
+      "name": "dev-tools",
+      "description": "Development tooling",
+      "defaultSelected": true,
+      "packages": [
+        { "id": "winget:Python.Python.3.12", "label": "Python 3.12" },
+        { "id": "winget:GitHub.cli", "label": "GitHub CLI" }
+      ]
+    },
+    {
+      "name": "editors",
+      "description": "Editors and viewers",
+      "defaultSelected": false,
+      "packages": [
+        { "id": "winget:Neovide.Neovide", "label": "Neovide" }
+      ]
+    },
+    {
+      "name": "media",
+      "description": "Media utilities",
+      "defaultSelected": false,
+      "packages": [
+        { "id": "winget:yt-dlp.yt-dlp", "label": "yt-dlp" },
+        { "id": "winget:VideoLAN.VLC", "label": "VLC" }
+      ]
+    }
+  ]
+}

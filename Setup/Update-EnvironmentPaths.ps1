@@ -30,19 +30,19 @@ function Add-PathToUserEnvironment {
         $newPathString = ($pathArray + $normalizedPathToAdd) -join ';' # Add the normalized one for consistency in the PATH string
         try {
             [System.Environment]::SetEnvironmentVariable("Path", $newPathString, "User")
-            Write-Host "$PathNameForLog added to User PATH. A new terminal session may be required for changes to take full effect." -ForegroundColor Green
+        Write-Host "$PathNameForLog added to User PATH. A new terminal session may be required for changes to take full effect." -ForegroundColor Green
 
-            if (-not (($env:PATH -split ';' | ForEach-Object { $_.TrimEnd('\/') }) -contains $normalizedPathToAdd)) {
-                $env:PATH = "$PathToAdd;$($env:PATH)" # Prepend original $PathToAdd to current session
-                Write-Host "$PathNameForLog added to current session's PATH." -ForegroundColor Green
-            }
-            return $true 
-        } catch {
-            Write-Error "Failed to set User PATH environment variable for $PathNameForLog: $($_.Exception.Message)"
-            return $false
+        if (-not (($env:PATH -split ';' | ForEach-Object { $_.TrimEnd('\/') }) -contains $normalizedPathToAdd)) {
+            $env:PATH = "$PathToAdd;$($env:PATH)" # Prepend original $PathToAdd to current session
+            Write-Host "$PathNameForLog added to current session's PATH." -ForegroundColor Green
         }
+        return $true 
+    } catch {
+        Write-Error ("Failed to set User PATH environment variable for {0}: {1}" -f $PathNameForLog, $_.Exception.Message)
+        return $false
     }
-    return $false 
+}
+return $false 
 }
 
 Write-Host "Updating environment paths..."

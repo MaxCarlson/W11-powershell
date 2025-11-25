@@ -4,6 +4,14 @@ param (
     [string]$description = "Daily File Move For Syncthing and Getting Data Off Phone"
 )
 
+# Ensure ScheduledTasks cmdlets are available
+try {
+    Import-Module ScheduledTasks -ErrorAction Stop
+} catch {
+    Write-Warning "ScheduledTasks module not available. Skipping task registration. Error: $($_.Exception.Message)"
+    return
+}
+
 # Get the path of the current script
 $scriptDirectory = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 
