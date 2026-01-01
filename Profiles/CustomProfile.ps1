@@ -118,6 +118,27 @@ $global:REPOS_DIR = if (Test-Path (Join-Path $global:PWSH_REPO "..\scripts")) {
     "$env:USERPROFILE\Repos"
 }
 
+# --- Ensure critical PATH entries for tools/CLIs ---
+function Add-PathIfMissing {
+    param([string]$PathToAdd)
+    if (-not $PathToAdd) { return }
+    $normalized = $PathToAdd.TrimEnd('\','/')
+    if (-not (Test-Path $normalized)) { return }
+    $parts = ($env:PATH -split ';') | Where-Object { $_ -ne '' }
+    if ($parts -notcontains $normalized) {
+        $env:PATH = "$normalized;$env:PATH"
+    }
+}
+
+$pathsToEnsure = @(
+    (Join-Path $Global:ProfileRepoPath 'bin'),
+    (Join-Path $global:SCRIPTS_REPO 'bin'),
+    (Join-Path $global:SCRIPTS_REPO '.venv\Scripts'),
+    (Join-Path $env:APPDATA 'Python\Python312\Scripts'),
+    (Join-Path $env:USERPROFILE '.local\bin')
+)
+$pathsToEnsure | ForEach-Object { Add-PathIfMissing $_ }
+
 # --- Global Variables ---
 # Legacy variables for backward compatibility
 $global:OBSIDIAN = 'C:\Users\mcarls\Documents\Obsidian-Vault\'
@@ -313,18 +334,41 @@ if ($env:ChocolateyInstall) {
 }
 Log-Time 'choco setup finished'
 
-# Conda initialization (uncomment if desired)
-# (& 'C:\Users\mcarls\anaconda3\shell\condabin\conda-hook.ps1') | Out-Null
-# conda activate base
-# Log-Time 'Conda Initialized'
+
+# Micromamba initialization (safe)
+$mm = Get-Command micromamba -ErrorAction SilentlyContinue
+if ($mm) {
+    try {
+        $root = $env:MAMBA_ROOT_PREFIX
+        if (-not $root) {
+            $root = Join-Path $env:USERPROFILE "micromamba"
+        }
+
+        $hook = & micromamba shell hook -s powershell -r $root 2>$null
+        if ($LASTEXITCODE -eq 0 -and $hook) {
+            Invoke-Expression $hook
+        }
+    } catch {
+        # swallow errors to avoid breaking the profile
+    }
+	Log-Time 'Micro-mamba Setup finished.'
+} else {
+    Write-Debug "micromamba not found; skipping init." -Channel Information -Condition $global:DebugProfile
+    Log-Time 'Micro-mamba Setup finished.'
+}
+
 
 # Oh-My-Posh
 if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
     try {
-        # Use theme URL - oh-my-posh version 8+ uses GitHub URLs for themes
-        # Popular themes: atomic, paradox, jandedobbeleer, powerlevel10k_rainbow
-        # Change 'atomic' in the URL below to use a different theme
-        $ompTheme = 'https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json'
+        # Use custom atomic theme with cleaner shell indicator
+        $customTheme = Join-Path $global:SCRIPTS_REPO 'pscripts\atomic-custom.omp.json'
+        if (Test-Path $customTheme) {
+            $ompTheme = $customTheme
+        } else {
+            # Fallback to upstream atomic theme
+            $ompTheme = 'https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/atomic.omp.json'
+        }
         oh-my-posh init pwsh --config $ompTheme | Invoke-Expression
         Log-Time 'oh-my-posh init finished'
     } catch {
@@ -363,7 +407,7 @@ if (-not $Global:ModuleLoaderFailed -and (Get-Command 'Show-ModuleLoaderSummary'
 # --- Finalization ---
 $script:ProfileStartTime.Stop()
 $TotalProfileTime = $script:ProfileStartTime.Elapsed.TotalMilliseconds
-$finalMessage    = "Finished loading PROFILE (Total Time: $($TotalProfileTime.ToString('F4')) ms)"
+$finalMessage    = "Finished loading PROFILE (Total Time: $($TotalProfileTime.ToString(`"F4`")) ms)"
 if ($global:DebugProfile) {
     Write-Debug -Message $finalMessage -Channel Information
 } else {
