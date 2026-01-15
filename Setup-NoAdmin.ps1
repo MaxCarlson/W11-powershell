@@ -2,6 +2,10 @@
 # Non-Administrator Setup Script
 # Performs user-level configuration only (no package installation, no scheduled tasks)
 
+param(
+    [string[]]$AgentLinkLocations = @('AppData')
+)
+
 $ErrorActionPreference = 'Stop'
 
 # --- Script Base Path ---
@@ -11,7 +15,7 @@ Write-Host "Setup script running from: $ScriptBase" -ForegroundColor Cyan
 # --- Shared user-level setup (same core as admin script) ---
 $sharedUserSetup = Join-Path $ScriptBase "Setup\UserSetupCore.ps1"
 if (Test-Path $sharedUserSetup) {
-    . $sharedUserSetup -ScriptBase $ScriptBase
+    . $sharedUserSetup -ScriptBase $ScriptBase -AgentLinkLocations $AgentLinkLocations
 } else {
     Write-Warning "Shared user setup not found at $sharedUserSetup"
 }

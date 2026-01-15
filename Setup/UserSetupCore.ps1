@@ -3,7 +3,8 @@ param(
     [string]$ScriptBase = $PSScriptRoot,
     [switch]$PersistEnv = $true,
     [switch]$EnsureProfileLink = $true,
-    [switch]$ConfigureRepoEnv = $true
+    [switch]$ConfigureRepoEnv = $true,
+    [string[]]$AgentLinkLocations = @('AppData')
 )
 
 function Invoke-UserSetupCore {
@@ -11,7 +12,8 @@ function Invoke-UserSetupCore {
         [string]$ScriptBase,
         [switch]$PersistEnv,
         [switch]$EnsureProfileLink,
-        [switch]$ConfigureRepoEnv
+        [switch]$ConfigureRepoEnv,
+        [string[]]$AgentLinkLocations
     )
 
     Write-Host "--- User setup (shared) ---" -ForegroundColor Cyan
@@ -64,7 +66,21 @@ function Invoke-UserSetupCore {
         }
     }
 
+    # Ensure agent instructions are linked globally
+    if ($AgentLinkLocations -and $AgentLinkLocations.Count -gt 0) {
+        $agentLinkScript = Join-Path $ScriptBase "Profiles\Ensure-AgentLinks.ps1"
+        if (Test-Path $agentLinkScript) {
+            try {
+                & $agentLinkScript -Locations $AgentLinkLocations
+            } catch {
+                Write-Warning ("Failed to link AGENTS.md into requested locations: {0}" -f $_)
+            }
+        } else {
+            Write-Warning "Agent linking script not found at $agentLinkScript"
+        }
+    }
+
     Write-Host "--- User setup complete ---" -ForegroundColor Cyan
 }
 
-Invoke-UserSetupCore -ScriptBase $ScriptBase -PersistEnv:$PersistEnv -EnsureProfileLink:$EnsureProfileLink -ConfigureRepoEnv:$ConfigureRepoEnv
+Invoke-UserSetupCore -ScriptBase $ScriptBase -PersistEnv:$PersistEnv -EnsureProfileLink:$EnsureProfileLink -ConfigureRepoEnv:$ConfigureRepoEnv -AgentLinkLocations $AgentLinkLocations

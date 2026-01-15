@@ -2,6 +2,10 @@
 # Main Orchestrator Script
 # Ensure this script is run as Administrator for full functionality.
 
+param(
+    [string[]]$AgentLinkLocations = @('AppData')
+)
+
 # --- Administrator Check ---
 function Assert-Administrator-Main {
     if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
@@ -28,7 +32,7 @@ Write-Host "Setup script running from: $ScriptBase" -ForegroundColor Yellow
 # --- Shared user-level setup (idempotent, also used by Setup-NoAdmin.ps1) ---
 $sharedUserSetup = Join-Path $ScriptBase "Setup\UserSetupCore.ps1"
 if (Test-Path $sharedUserSetup) {
-    . $sharedUserSetup -ScriptBase $ScriptBase
+    . $sharedUserSetup -ScriptBase $ScriptBase -AgentLinkLocations $AgentLinkLocations
 } else {
     Write-Warning "Shared user setup not found at $sharedUserSetup"
 }
