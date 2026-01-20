@@ -12,6 +12,7 @@ if ($global:ModuleLoaderLogicHasRun) {
 }
 $global:ModuleLoaderLogicHasRun = $true
 $global:ModuleLoaderFailed     = $false
+$global:AliasOverrides         = [System.Collections.Generic.List[PSObject]]::new()
 
 # ── Custom failure actions for specific modules ─────────────────────────────────
 $script:FailureActions = @{
@@ -126,7 +127,19 @@ function Show-ModuleLoaderSummary {
     if ($succ.Count) {
         Write-Host "`n  Modules Successfully Loaded:" -ForegroundColor Green
         foreach ($m in $succ) {
-            Write-Host "   - $($m.ModuleName): $($m.Functions) fn, $($m.Aliases) alias – $($m.LoadTimeMs) ms"
+            Write-Host "   - $($m.ModuleName): $($m.Functions) fn, $($m.Aliases) alias - $($m.LoadTimeMs) ms"
+            if ($global:AliasOverrides -and $global:AliasOverrides.Count) {
+                $moduleOverrides = $global:AliasOverrides | Where-Object ModuleName -EQ $m.ModuleName
+                if ($moduleOverrides.Count) {
+                    Write-Host "`t- Default Commands overridden:" -ForegroundColor Cyan
+                    foreach ($alias in $moduleOverrides) {
+                        $type = $alias.CommandType
+                        $details = "$type '$($alias.Name)' - $($alias.Definition)"
+                        Write-Host "`t`t- $details" -ForegroundColor DarkCyan
+                    }
+                    Write-Host ""
+                }
+            }
         }
     }
     if ($fail.Count) {

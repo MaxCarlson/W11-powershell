@@ -103,6 +103,12 @@
 # Atuin PowerShell Initialization Module
 
 # Set Atuin session and history path
+$atuinCommand = Get-Command atuin -ErrorAction SilentlyContinue
+if (-not $atuinCommand) {
+    Write-Warning "Atuin not found in PATH; skipping Atuin module."
+    return
+}
+
 $script:ATUIN_DEBUG=$false
 $script:WRITE_TO_DEBUG= $ATUIN_DEBUG -or $DebugProfile
 $env:ATUIN_SESSION = $(atuin uuid)

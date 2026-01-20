@@ -1,5 +1,35 @@
 # Git Functions & Aliases
 
+# Remove default aliases that block git helpers from being imported
+$commandOverrides = @()
+foreach ($aliasName in @('ga', 'gl', 'gp')) {
+    $existingCommands = @(Get-Command -Name $aliasName -All -ErrorAction SilentlyContinue)
+    foreach ($cmd in $existingCommands) {
+        $definition = switch ($cmd.CommandType) {
+            'Alias' { $cmd.Definition }
+            'Function' { $cmd.Definition }
+            default { $cmd.Source }
+        }
+        $commandOverrides += [PSCustomObject]@{
+            ModuleName  = 'GitCommandsModule'
+            Name        = $cmd.Name
+            CommandType = $cmd.CommandType
+            Definition  = $definition
+        }
+    }
+    if (Get-Alias -Name $aliasName -ErrorAction SilentlyContinue) {
+        Remove-Item -Path "Alias:$aliasName" -Force -ErrorAction SilentlyContinue
+    }
+}
+if ($commandOverrides.Count -gt 0) {
+    if (-not $global:AliasOverrides) {
+        $global:AliasOverrides = [System.Collections.Generic.List[PSObject]]::new()
+    }
+    foreach ($commandOverride in $commandOverrides) {
+        $global:AliasOverrides.Add($commandOverride)
+    }
+}
+
 # Capture existing aliases before we define our own
 $preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
 
@@ -22,16 +52,14 @@ function gchm {
     }
 }
 
-# Simple aliases that don't need to take parameters
-Set-Alias -Name g -Value "git"
-Set-Alias -Name ga  -Value "git add"
-
 ## Define the function to describe the latest tag
 function gdct {
     git describe --tags $(git rev-list --tags --max-count=1)
 }
 
-
+function gl { git pull @args }
+function ga { git add @args }
+function gp { git push @args }
 function gaa  { git add --all }
 function gp { git push }
 function gam  { git am }
@@ -126,5 +154,7 @@ Export-ModuleMember -Function $newFunctions.Name
 $newAliases = Get-Alias | Where-Object { $preExistingAliases -notcontains $_.Name }
 
 # Export all alises defined within this file 
-Export-ModuleMember -Alias $newAliases.Name
+if ($newAliases -and $newAliases.Count -gt 0) {
+    Export-ModuleMember -Alias $newAliases.Name
+}
 

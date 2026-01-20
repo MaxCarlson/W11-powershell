@@ -6,7 +6,13 @@ Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward
 Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
 
 # Predictive Intellegence
-Set-PSReadLineOption -PredictionSource History
+try {
+    if ($Host.UI.SupportsVirtualTerminal -and -not [Console]::IsOutputRedirected) {
+        Set-PSReadLineOption -PredictionSource History
+    }
+} catch {
+    # Skip prediction if the host does not support it.
+}
 
 # Add command to history without executing
 $parameters = @{

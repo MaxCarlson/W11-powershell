@@ -68,14 +68,12 @@ function Add-HumanSize {
                 if (($RawValue -is [long] -or $RawValue -is [int] -or $RawValue -is [double] -or $RawValue -is [decimal]) -and ($RawValue -gt 0)) {
                     
                     # Logic to determine the correct unit and format the string
-                    $FormattedSize = (
-                        if ($RawValue -ge 1PB)    { "{0:N2} PB" -f ($RawValue / 1PB) }
-                        elseif ($RawValue -ge 1TB){ "{0:N2} TB" -f ($RawValue / 1TB) }
-                        elseif ($RawValue -ge 1GB){ "{0:N2} GB" -f ($RawValue / 1GB) }
-                        elseif ($RawValue -ge 1MB){ "{0:N2} MB" -f ($RawValue / 1MB) }
-                        elseif ($RawValue -ge 1KB){ "{0:N2} KB" -f ($RawValue / 1KB) }
-                        else                       { "{0:N0} B"  -f $RawValue }
-                    )
+                    $FormattedSize = if ($RawValue -ge 1PB) { "{0:N2} PB" -f ($RawValue / 1PB) }
+                    elseif ($RawValue -ge 1TB) { "{0:N2} TB" -f ($RawValue / 1TB) }
+                    elseif ($RawValue -ge 1GB) { "{0:N2} GB" -f ($RawValue / 1GB) }
+                    elseif ($RawValue -ge 1MB) { "{0:N2} MB" -f ($RawValue / 1MB) }
+                    elseif ($RawValue -ge 1KB) { "{0:N2} KB" -f ($RawValue / 1KB) }
+                    else { "{0:N0} B" -f $RawValue }
                     
                     # Define the new property name (e.g., Size -> SizeHR)
                     $NewPropertyName = $PropName + "HR" 
