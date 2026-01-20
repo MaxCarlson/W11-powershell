@@ -9,7 +9,7 @@
     a formatted, human-readable string.
 
 .AUTHOR
-    Your Name
+    Max Carlson
 
 .DATE
     2025-12-10

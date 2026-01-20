@@ -136,6 +136,7 @@ function gcmsoA { git commit --all --signoff @args }
 function gcmsoM { git commit --all --signoff --message @args }
 function gcmtmsg { git commit --message @args }
 function gcmsg { git commit --gpg-sign @args }
+function gcmsg { git commit -m @args }
 function gcmsoMsg { git commit --signoff --message @args }
 function gcmtcsigS { git commit --gpg-sign --signoff @args }
 function gcmtcssM { git commit --gpg-sign --signoff --message @args }
