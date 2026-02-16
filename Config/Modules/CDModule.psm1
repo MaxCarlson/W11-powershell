@@ -9,7 +9,7 @@ if (-not $global:ModuleImportedCDModule) {
 # These paths are auto-detected in CustomProfile.ps1
 
 # Standard Windows directories
-function cdd { Set-Location "$HOME\Documents\" }
+function cdd { Set-Location "$HOME\src\dotfiles\" }
 function cddl { Set-Location "$HOME\Downloads\"}
 function cdobs { Set-Location "$HOME\Documents\Obsidian-Vault\" }
 
