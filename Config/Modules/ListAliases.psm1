@@ -1,10 +1,5 @@
 # File: Config/Modules/ListAliases.psm1
 
-# Auto-export helper (guarded import)
-if (-not (Get-Module -Name AutoExportModule)) {
-    Import-Module "$PSScriptRoot\AutoExportModule.psm1" -ErrorAction Stop
-}
-
 # Import Guard
 if (-not $script:ModuleImportedListAliases) {
     $script:ModuleImportedListAliases = $true
@@ -22,9 +17,6 @@ $script:WRITE_TO_DEBUG    = ($DebugProfile -or $DEBUG_LISTALIASES)
 if (-not (Get-Module -Name NativeGlob)) {
     Import-Module -Name "$PSScriptRoot\NativeGlob.psm1" -ErrorAction Stop
 }
-
-# Capture existing aliases before we define our own
-$preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
 
 # --- Thin eza wrapper using the generic invoker (relative + leaf behavior on) ---
 function Invoke-Eza {
@@ -81,6 +73,10 @@ function deldirs {
     }
 }
 
-# === Auto-export all new functions and aliases ===
-Export-AutoExportFunctions -Exclude @()
-Export-AutoExportAliases   -Exclude $preExistingAliases
+$listAliasFunctions = @(
+    'Invoke-Eza',
+    'l','ls','la','ll','lo','lg','lll','laha','lss','lst','lse','lx',
+    'l1','l2','l3','l4','l5','lt1','lt2','lt3','lt4','lt5',
+    'fddots','fcount','deldirs'
+)
+Export-ModuleMember -Function $listAliasFunctions

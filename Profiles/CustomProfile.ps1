@@ -321,6 +321,7 @@ Log-Time 'Module order configured'
 # Keep modules here when they provide occasional commands or expensive import-time setup.
 $Global:LazyModules = @(
     'BackupAndRestore',
+    'CDModule',
     'Cheatsh',
     'Coloring',
     'Downloader',
@@ -345,6 +346,28 @@ $Global:LazyModuleFunctions = @{
         'Restore-RegistryKeys',
         'Backup-ScheduledTasks',
         'Restore-ScheduledTasks'
+    )
+    CDModule = @(
+        'cdd',
+        'cddl',
+        'cdobs',
+        'cdsrc',
+        'cds',
+        'cdsm',
+        'cdspy',
+        'cdsps',
+        'cdre',
+        'cdpwsh',
+        'cdps',
+        'cdmo',
+        'cddot',
+        'cdtor',
+        'cdtord',
+        'cdpo',
+        'cdpon',
+        'cdpoi',
+        'cdpoh',
+        'z'
     )
     Cheatsh = @('cht')
     Coloring = @('Write-Color')

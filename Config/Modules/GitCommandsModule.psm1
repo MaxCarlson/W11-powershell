@@ -30,10 +30,6 @@ if ($commandOverrides.Count -gt 0) {
     }
 }
 
-# Capture existing aliases before we define our own
-$preExistingAliases = Get-Alias | Select-Object -ExpandProperty Name
-
-
 # Define the function to checkout the develop branch
 function gchD {
     git checkout develop
@@ -136,21 +132,14 @@ function gcmsoMsg { git commit --signoff --message @args }
 function gcmtcsigS { git commit --gpg-sign --signoff @args }
 function gcmtcssM { git commit --gpg-sign --signoff --message @args }
 
-# List of functions to exclude from being exported
-#$excludeFunctions = @("PrivateFunction1", "PrivateFunction2")
-
-# Exports for Functions and Aliases handled automatically below
-# All functions & aliases defined within this file will be exported
-# If something needs to not be exported, we'll have to slightly modify the format
-$newFunctions = @(Get-Command -CommandType Function | Where-Object { $_.ScriptBlock.File -eq $PSCommandPath })
-Export-ModuleMember -Function $newFunctions.Name
-
-
-# Get aliases that were defined in this module
-$newAliases = Get-Alias | Where-Object { $preExistingAliases -notcontains $_.Name }
-
-# Export all alises defined within this file 
-if ($newAliases -and $newAliases.Count -gt 0) {
-    Export-ModuleMember -Alias $newAliases.Name
-}
+$gitFunctions = @(
+    'gchD','gchm','gdct','gl','ga','gp','gaa','gam','gama','gamc','gams','gamscp',
+    'gap','gapa','gapt','gau','gav','gb','gbD','gba','gbd','gbg','gbgD','gbgd',
+    'gbl','gchB','gchb','gcfg','gclR','gcln','gtco','gchkR','gtlog','gchp',
+    'gchpa','gchpc','gd','gdca','gdcw','gds','gdt','gdw','gf','gfa','gfg','gfo',
+    'gg','gga','gpl','glg','glgg','glgga','glgm','glgp','glo','glod','gcam','gst',
+    'gcmt','gcmt!','gcmtA','gcmtA!','gcmtna!','gcmtcn!','gcmtcs!','gcmsoA',
+    'gcmsoM','gcmtmsg','gcmsg','gcmsoMsg','gcmtcsigS','gcmtcssM'
+)
+Export-ModuleMember -Function $gitFunctions
 

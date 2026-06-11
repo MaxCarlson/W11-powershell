@@ -63,10 +63,6 @@ function script:Initialize-Module {
         [string]$ModulePath
     )
 
-    # snapshot before
-    $beforeFns = (Get-Command -CommandType Function).Name
-    $beforeA   = (Get-Alias).Name
-
     # prepare result object with new LoadTimeMs field
     $result = [PSCustomObject]@{
         ModuleName = $ModuleName
@@ -82,15 +78,11 @@ function script:Initialize-Module {
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         Write-Debug "Importing ${ModuleName}..." -Channel Verbose -Condition $global:DebugProfile
-        Import-Module -Name $ModulePath -ErrorAction Stop -Global
-
-        # snapshot after
-        $afterFns = (Get-Command -CommandType Function).Name
-        $afterA   = (Get-Alias).Name
+        $moduleInfo = Import-Module -Name $ModulePath -ErrorAction Stop -Global -PassThru
 
         $result.Status    = 'Success'
-        $result.Functions = (Compare-Object -ReferenceObject $beforeFns -DifferenceObject $afterFns -PassThru).Count
-        $result.Aliases   = (Compare-Object -ReferenceObject $beforeA   -DifferenceObject $afterA   -PassThru).Count
+        $result.Functions = @($moduleInfo.ExportedFunctions.Keys).Count
+        $result.Aliases   = @($moduleInfo.ExportedAliases.Keys).Count
 
         Write-Debug "Imported ${ModuleName}: $($result.Functions) fn, $($result.Aliases) alias" `
             -Channel Information -Condition $global:DebugProfile
@@ -148,6 +140,10 @@ function script:Register-LazyModule {
 
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
     try {
+        if (-not $global:LazyModuleRegistry) {
+            $global:LazyModuleRegistry = @{}
+        }
+
         $functionNames = @()
         if ($Global:LazyModuleFunctions -is [hashtable] -and $Global:LazyModuleFunctions.ContainsKey($ModuleName)) {
             $functionNames = @($Global:LazyModuleFunctions[$ModuleName])
@@ -155,17 +151,23 @@ function script:Register-LazyModule {
         else {
             $functionNames = @(Get-ModuleFunctionNamesFromAst -ModulePath $ModulePath)
         }
+        $registryEntry = [pscustomobject]@{
+            ModuleName     = $ModuleName
+            ModulePath     = $ModulePath
+            FunctionNames  = @($functionNames)
+        }
         foreach ($functionName in $functionNames) {
-            $capturedModuleName = $ModuleName
-            $capturedModulePath = $ModulePath
-            $capturedFunctionName = $functionName
-
-            $wrapper = {
-                Remove-Item -LiteralPath "Function:\global:$capturedFunctionName" -Force -ErrorAction SilentlyContinue
-                Import-Module -Name $capturedModulePath -ErrorAction Stop -Global
-                $command = Get-Command -Name $capturedFunctionName -CommandType Function -ErrorAction Stop
-                & $command @args
-            }.GetNewClosure()
+            $global:LazyModuleRegistry[$functionName] = $registryEntry
+            $escapedFunctionName = $functionName.Replace("'", "''")
+            $wrapper = [scriptblock]::Create(@"
+`$entry = `$global:LazyModuleRegistry['$escapedFunctionName']
+foreach (`$name in `$entry.FunctionNames) {
+    Remove-Item -Path "function:`$name" -Force -ErrorAction SilentlyContinue
+}
+Import-Module -Name `$entry.ModulePath -ErrorAction Stop -Global
+`$command = Get-Command -Name '$escapedFunctionName' -CommandType Function -ErrorAction Stop
+& `$command @args
+"@)
 
             Set-Item -LiteralPath "Function:\global:$functionName" -Value $wrapper -Force
         }
