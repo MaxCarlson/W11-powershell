@@ -15,7 +15,7 @@
       - Backup PATH (to JSON)
       - Restore PATH from a JSON backup
       - Show and remove duplicates
-      - Add a new entry to PATH
+      - Set a PATH entry by adding it if missing
     Each modifying function prompts for a backup first if the user chooses.
 
 .NOTES
@@ -87,27 +87,9 @@ function Get-PathEntries {
 }
 
 # ---------------------------------------
-# Set-PathEntries
+# Write-PathEntriesInternal
 # ---------------------------------------
-function Set-PathEntries {
-<#
-.SYNOPSIS
-    Overwrites the PATH environment variable with the specified entries.
-
-.DESCRIPTION
-    Joins the provided string array with semicolons, then sets the environment
-    variable for either 'User' or 'Machine' scope. This is a complete overwrite.
-
-.PARAMETER Entries
-    An array of path strings (no deduping or validation here).
-
-.PARAMETER Scope
-    'User' or 'Machine'. (Both is not allowed because we must set them separately.)
-
-.EXAMPLE
-    PS C:\> $arr = @("C:\MyTools","C:\AnotherPath")
-    PS C:\> Set-PathEntries -Entries $arr -Scope User
-#>
+function Write-PathEntriesInternal {
     [CmdletBinding(SupportsShouldProcess=$true)]
     param(
         [Parameter(Mandatory=$true)]
@@ -380,7 +362,7 @@ function Remove-PathDuplicates {
                 if (-not $unique.Contains($e)) { [void]$unique.Add($e) }
             }
             if ($PSCmdlet.ShouldProcess("User PATH", "Remove duplicates")) {
-                Set-PathEntries -Entries $unique -Scope 'User'
+                Write-PathEntriesInternal -Entries $unique -Scope 'User'
                 Write-Host "Duplicates removed from User PATH." -ForegroundColor Green
             }
         }
@@ -396,7 +378,7 @@ function Remove-PathDuplicates {
                 if (-not $unique.Contains($e)) { [void]$unique.Add($e) }
             }
             if ($PSCmdlet.ShouldProcess("Machine PATH", "Remove duplicates")) {
-                Set-PathEntries -Entries $unique -Scope 'Machine'
+                Write-PathEntriesInternal -Entries $unique -Scope 'Machine'
                 Write-Host "Duplicates removed from Machine PATH." -ForegroundColor Green
             }
         }
@@ -410,7 +392,7 @@ function Remove-PathDuplicates {
                     if (-not $uUnique.Contains($u)) { [void]$uUnique.Add($u) }
                 }
                 if ($PSCmdlet.ShouldProcess("User PATH", "Remove duplicates")) {
-                    Set-PathEntries -Entries $uUnique -Scope 'User'
+                    Write-PathEntriesInternal -Entries $uUnique -Scope 'User'
                     Write-Host "Duplicates removed from User PATH." -ForegroundColor Green
                 }
             }
@@ -423,7 +405,7 @@ function Remove-PathDuplicates {
                     if (-not $mUnique.Contains($m)) { [void]$mUnique.Add($m) }
                 }
                 if ($PSCmdlet.ShouldProcess("Machine PATH", "Remove duplicates")) {
-                    Set-PathEntries -Entries $mUnique -Scope 'Machine'
+                    Write-PathEntriesInternal -Entries $mUnique -Scope 'Machine'
                     Write-Host "Duplicates removed from Machine PATH." -ForegroundColor Green
                 }
             }
@@ -432,25 +414,38 @@ function Remove-PathDuplicates {
 }
 
 # ---------------------------------------
-# Add-PathEntry
+# Set-PathEntry
 # ---------------------------------------
-function Add-PathEntry {
+function Set-PathEntry {
 <#
 .SYNOPSIS
-    Adds a path entry if not already present.
+    Adds one PATH entry if it is not already present.
 
 .DESCRIPTION
-    Prompts for a backup, checks if the entry is present, and if not,
-    appends it to the PATH for User, Machine, or Both. If Both, tries user first, then machine.
+    Safely updates PATH by reading the existing entries, checking whether the
+    requested entry is already present, and appending only that one entry when
+    needed.
+
+    This function does not accept an entire replacement PATH string. It exists
+    specifically to avoid accidental full PATH overwrites.
 
 .PARAMETER NewEntry
-    The path string to add.
+    The directory path to add as one PATH entry. Pass exactly one path, not a
+    semicolon-delimited list.
 
 .PARAMETER Scope
-    'User', 'Machine', or 'Both'.
+    User, Machine, or Both. User is the default. Machine typically requires an
+    elevated PowerShell session. Both writes to User and Machine separately.
 
 .EXAMPLE
-    PS C:\> Add-PathEntry -NewEntry "C:\MyNewTools" -Scope Both
+    PS C:\> Set-PathEntry -NewEntry "C:\MyNewTools" -Scope User
+
+    Adds C:\MyNewTools to the current user's persistent PATH if missing.
+
+.EXAMPLE
+    PS C:\> Set-PathEntry -NewEntry "C:\AdminTools" -Scope Machine -WhatIf
+
+    Shows what would be added to the Machine PATH without changing it.
 #>
     [CmdletBinding(SupportsShouldProcess=$true)]
     param(
@@ -464,12 +459,16 @@ function Add-PathEntry {
         $Scope = 'User'
     )
 
+    $NewEntry = $NewEntry.Trim()
+    if ($NewEntry -match ';') {
+        throw "NewEntry must be one PATH entry, not a semicolon-delimited PATH string."
+    }
+
     $reply = Read-Host "Would you like to back up the [$Scope] PATH(s) before adding '$NewEntry'? (y/n)"
     if ($reply -match '^(y|yes)$') {
         Backup-Paths -Scope $Scope
     }
 
-    $NewEntry = $NewEntry.Trim()
     if (-not (Test-Path $NewEntry)) {
         Write-Warning "Directory '$NewEntry' does not exist. Proceeding anyway..."
     }
@@ -483,7 +482,7 @@ function Add-PathEntry {
             }
             $updated = $entries + $NewEntry
             if ($PSCmdlet.ShouldProcess("User PATH", "Add '$NewEntry'")) {
-                Set-PathEntries -Entries $updated -Scope 'User'
+                Write-PathEntriesInternal -Entries $updated -Scope 'User'
                 Write-Host "Path '$NewEntry' added to User PATH." -ForegroundColor Green
             }
         }
@@ -496,7 +495,7 @@ function Add-PathEntry {
             }
             $updated = $entries + $NewEntry
             if ($PSCmdlet.ShouldProcess("Machine PATH", "Add '$NewEntry'")) {
-                Set-PathEntries -Entries $updated -Scope 'Machine'
+                Write-PathEntriesInternal -Entries $updated -Scope 'Machine'
                 Write-Host "Path '$NewEntry' added to Machine PATH." -ForegroundColor Green
             }
         }
@@ -507,7 +506,7 @@ function Add-PathEntry {
             if (-not ($uEntries -contains $NewEntry)) {
                 $uUpdated = $uEntries + $NewEntry
                 if ($PSCmdlet.ShouldProcess("User PATH", "Add '$NewEntry'")) {
-                    Set-PathEntries -Entries $uUpdated -Scope 'User'
+                    Write-PathEntriesInternal -Entries $uUpdated -Scope 'User'
                     Write-Host "Path '$NewEntry' added to User PATH." -ForegroundColor Green
                 }
             } else {
@@ -519,7 +518,7 @@ function Add-PathEntry {
             if (-not ($mEntries -contains $NewEntry)) {
                 $mUpdated = $mEntries + $NewEntry
                 if ($PSCmdlet.ShouldProcess("Machine PATH", "Add '$NewEntry'")) {
-                    Set-PathEntries -Entries $mUpdated -Scope 'Machine'
+                    Write-PathEntriesInternal -Entries $mUpdated -Scope 'Machine'
                     Write-Host "Path '$NewEntry' added to Machine PATH." -ForegroundColor Green
                 }
             } else {
@@ -528,3 +527,5 @@ function Add-PathEntry {
         }
     }
 }
+
+Export-ModuleMember -Function Get-PathEntries,Set-PathEntry,Backup-Paths,Restore-Paths,Show-PathDuplicates,Remove-PathDuplicates

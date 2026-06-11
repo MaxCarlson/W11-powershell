@@ -1,11 +1,73 @@
-# --- SILENCE NON-INTERACTIVE SSH SESSIONS (scp/sftp) ---
-if ($env:SSH_CONNECTION -and -not $env:SSH_TTY) {
-    $InformationPreference = 'SilentlyContinue'
-    $VerbosePreference     = 'SilentlyContinue'
-    $DebugPreference       = 'SilentlyContinue'
-    $ProgressPreference    = 'SilentlyContinue'
+$script:IsSshSession = [bool](
+    $env:SSH_CONNECTION -or
+    $env:SSH_CLIENT -or
+    $env:SSH_TTY
+)
+
+$script:PowerShellArguments = [Environment]::GetCommandLineArgs()
+
+$script:IsExplicitAutomationShell = [bool](
+    $env:CI -eq "true" -or
+    $env:CODEX_SANDBOX -or
+    $env:GITHUB_ACTIONS -eq "true" -or
+    $env:TF_BUILD -eq "true" -or
+    $env:TEAMCITY_VERSION -or
+    $env:JENKINS_URL -or
+    $env:MAX_FORCE_AUTOMATION_PWSH -eq "1" -or
+    $script:PowerShellArguments -contains "-NonInteractive" -or
+    $script:PowerShellArguments -contains "-Command" -or
+    $script:PowerShellArguments -contains "-EncodedCommand" -or
+    $script:PowerShellArguments -contains "-File" -or
+    $script:PowerShellArguments -contains "-c" -or
+    $script:PowerShellArguments -contains "-e" -or
+    $script:PowerShellArguments -contains "-f"
+)
+
+$script:IsNonInteractiveDotNetSession = [bool](
+    -not $script:IsSshSession -and
+    -not [Environment]::UserInteractive
+)
+
+$script:IsRedirectedNonSshConsole = [bool](
+    -not $script:IsSshSession -and
+    (
+        [Console]::IsInputRedirected -or
+        [Console]::IsOutputRedirected
+    )
+)
+
+$script:IsUnsupportedNonSshHost = [bool](
+    -not $script:IsSshSession -and
+    $Host.Name -notin @(
+        "ConsoleHost",
+        "Visual Studio Code Host"
+    )
+)
+
+$script:IsAutomationShell = [bool](
+    $script:IsExplicitAutomationShell -or
+    $script:IsNonInteractiveDotNetSession -or
+    $script:IsRedirectedNonSshConsole -or
+    $script:IsUnsupportedNonSshHost
+)
+
+if ($env:MAX_FORCE_INTERACTIVE_PWSH -eq "1") {
+    $script:IsAutomationShell = $false
+}
+
+if ($script:IsAutomationShell) {
+    $InformationPreference = "SilentlyContinue"
+    $VerbosePreference = "SilentlyContinue"
+    $DebugPreference = "SilentlyContinue"
+    $ProgressPreference = "SilentlyContinue"
+    $WarningPreference = "SilentlyContinue"
+    $ErrorActionPreference = "SilentlyContinue"
+
     return
 }
+
+# Debug output is opt-in only
+$script:DebugProfile = $env:POWERSHELL_PROFILE_DEBUG -eq "1"
 # -------------------------------------------------------
 
 

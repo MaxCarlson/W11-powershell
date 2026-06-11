@@ -25,7 +25,15 @@ A short list of some of the useful module functions
 
 ### SystemUtils
 - New-FileLink: Create a sym/hard link from a source at a dest
-- Set-PathVariable: Add a path to the User or System PATH if it doesn't exist yet
+
+### PathManager
+- Get-PathEntries: Display PATH entries by scope
+- Set-PathEntry: Add one path to the User or Machine PATH if it doesn't exist yet
+
+### EnvironmentVariables
+- Get-EnvironmentVariables: Display environment variables by scope
+- Set-EnvironmentVariable: Persistently set one environment variable by scope
+- Remove-EnvironmentVariable: Remove one environment variable by scope
 
 ### ClipBoardModule
 - Set-FileClipboard (sfc): Set a file equal to the current contents of the clipboard

@@ -94,7 +94,9 @@ function Setup-ExecutableLinks {
 #>
 function Setup-PathVariable {
     Write-Debug -Message "Ensuring $PWSH_BIN_DIR is in the user's PATH" -Channel "Information"
-    Set-PathVariable -PathToAdd $PWSH_BIN_DIR
+    $pathManager = Join-Path $PSScriptRoot '..\Config\Modules\PathManager.psm1'
+    Import-Module $pathManager -ErrorAction Stop
+    Set-PathEntry -NewEntry $PWSH_BIN_DIR -Scope User
 }
 
 # Execute setup functions

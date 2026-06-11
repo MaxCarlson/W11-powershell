@@ -140,11 +140,11 @@ Describe "PathManager Module Tests" {
         ($finalUser | Where-Object { $_ -eq 'C:\Test1' }).Count | Should Be 1
     }
 
-    It "Add-PathEntry doesn't duplicate existing entries and can add new path" {
+    It "Set-PathEntry doesn't duplicate existing entries and can add new path" {
         Write-Host "`n[DEBUG] USER PATH before add attempts: $([Environment]::GetEnvironmentVariable('Path','User'))"
 
         # 1) Should not add duplicates
-        Add-PathEntry -Scope User -NewEntry 'C:\Test2' | Out-Null
+        Set-PathEntry -Scope User -NewEntry 'C:\Test2' | Out-Null
         $pathAfterDupCheck = [Environment]::GetEnvironmentVariable('Path','User')
         Write-Host "[DEBUG] USER PATH after trying to add 'C:\Test2': $pathAfterDupCheck"
 
@@ -152,7 +152,7 @@ Describe "PathManager Module Tests" {
         ($finalUser | Where-Object { $_ -eq 'C:\Test2' }).Count | Should Be 1
 
         # 2) Add a new entry
-        Add-PathEntry -Scope User -NewEntry 'C:\NewTools' | Out-Null
+        Set-PathEntry -Scope User -NewEntry 'C:\NewTools' | Out-Null
         $pathAfterNewEntry = [Environment]::GetEnvironmentVariable('Path','User')
         Write-Host "[DEBUG] USER PATH after adding 'C:\NewTools': $pathAfterNewEntry"
 
