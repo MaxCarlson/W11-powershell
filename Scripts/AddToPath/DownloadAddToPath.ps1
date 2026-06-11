@@ -15,8 +15,8 @@ param (
     [switch]$OverwriteExtract            # Delete extraction directory if it already exists
 )
 
-# Resolve the module directory dynamically
-$ModulePath = Join-Path -Path $PSScriptRoot -ChildPath "../Modules"
+# Resolve the profile module directory dynamically
+$ModulePath = Join-Path -Path $PSScriptRoot -ChildPath "..\..\Config\Modules"
 
 # Import modules
 Import-Module -Name (Join-Path -Path $ModulePath -ChildPath "Downloader.psm1")
@@ -137,7 +137,7 @@ if ($downloadSuccess -or -not $DownloadPath) {
      	    	foreach ($selection in $validSelections) {
      	    	    $selectedPath = $exeFolders[[int]$selection - 1]
      	    	    Write-Color -Message "Selected folder to add to PATH: $selectedPath" -Type "Success"
-     	    	    Add-PathItem -Directory $selectedPath -Verbose
+     	    	    Set-PathEntry -NewEntry $selectedPath -Scope User
      	    	}
      	        } elseif ($selectionInput -eq '0') {
      	    	Write-Color -Message "No folder added to PATH." -Type "Success"

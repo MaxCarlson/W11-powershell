@@ -1,4 +1,20 @@
-Import-Module "$PSScriptRoot/Coloring.psm1"
+function Write-ModuleColor {
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [string]$Type = 'White',
+        [string]$Color
+    )
+
+    $map = @{
+        Error      = 'Red'
+        Warning    = 'Yellow'
+        Success    = 'Green'
+        Info       = 'Cyan'
+        Processing = 'DarkCyan'
+    }
+    $resolved = if ($Color) { $Color } elseif ($map.ContainsKey($Type)) { $map[$Type] } else { $Type }
+    Write-Host $Message -ForegroundColor $resolved
+}
 
 <#
 .SYNOPSIS
@@ -30,20 +46,20 @@ function Expand-CustomArchive {
     try {
         if (Test-Path -Path $DestinationPath) {
             if (-not $Overwrite) {
-                Write-Color -Message "Destination directory already exists: $DestinationPath. Skipping extraction." -Color Yellow
+                Write-ModuleColor -Message "Destination directory already exists: $DestinationPath. Skipping extraction." -Color Yellow
                 return $false
             }
 
-            Write-Color -Message "Deleting existing directory: $DestinationPath" -Color Yellow
+            Write-ModuleColor -Message "Deleting existing directory: $DestinationPath" -Color Yellow
             Remove-Item -Recurse -Force $DestinationPath
         }
 
-        Write-Color -Message "Unzipping file: $ArchivePath to $DestinationPath..." -Color Yellow
+        Write-ModuleColor -Message "Unzipping file: $ArchivePath to $DestinationPath..." -Color Yellow
         Expand-Archive -Path $ArchivePath -DestinationPath $DestinationPath -Force
-        Write-Color -Message "File unzipped successfully to: $DestinationPath" -Color Green
+        Write-ModuleColor -Message "File unzipped successfully to: $DestinationPath" -Color Green
         return $true
     } catch {
-        Write-Color -Message "Error during extraction: $_" -Color Red
+        Write-ModuleColor -Message "Error during extraction: $_" -Color Red
         return $false
     }
 }

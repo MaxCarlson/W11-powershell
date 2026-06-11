@@ -71,6 +71,7 @@ function script:Initialize-Module {
     $result = [PSCustomObject]@{
         ModuleName = $ModuleName
         Status     = 'Failed'
+        LoadMode   = 'Eager'
         Functions  = 0
         Aliases    = 0
         LoadTimeMs = 0.0
@@ -110,6 +111,79 @@ function script:Initialize-Module {
     }
 }
 
+function script:Get-ModuleFunctionNamesFromAst {
+    param([Parameter(Mandatory)][string]$ModulePath)
+
+    $tokens = $null
+    $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($ModulePath, [ref]$tokens, [ref]$errors)
+    if ($errors -and $errors.Count -gt 0) {
+        throw "Cannot parse module for lazy loading: $($errors[0].Message)"
+    }
+
+    $ast.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+        $node.Name -notlike '*:*'
+    }, $true) |
+        ForEach-Object { $_.Name } |
+        Sort-Object -Unique
+}
+
+function script:Register-LazyModule {
+    param(
+        [Parameter(Mandatory)][string]$ModuleName,
+        [Parameter(Mandatory)][string]$ModulePath
+    )
+
+    $result = [PSCustomObject]@{
+        ModuleName = $ModuleName
+        Status     = 'Lazy'
+        LoadMode   = 'Lazy'
+        Functions  = 0
+        Aliases    = 0
+        LoadTimeMs = 0.0
+        Error      = $null
+    }
+
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        $functionNames = @()
+        if ($Global:LazyModuleFunctions -is [hashtable] -and $Global:LazyModuleFunctions.ContainsKey($ModuleName)) {
+            $functionNames = @($Global:LazyModuleFunctions[$ModuleName])
+        }
+        else {
+            $functionNames = @(Get-ModuleFunctionNamesFromAst -ModulePath $ModulePath)
+        }
+        foreach ($functionName in $functionNames) {
+            $capturedModuleName = $ModuleName
+            $capturedModulePath = $ModulePath
+            $capturedFunctionName = $functionName
+
+            $wrapper = {
+                Remove-Item -LiteralPath "Function:\global:$capturedFunctionName" -Force -ErrorAction SilentlyContinue
+                Import-Module -Name $capturedModulePath -ErrorAction Stop -Global
+                $command = Get-Command -Name $capturedFunctionName -CommandType Function -ErrorAction Stop
+                & $command @args
+            }.GetNewClosure()
+
+            Set-Item -LiteralPath "Function:\global:$functionName" -Value $wrapper -Force
+        }
+
+        $result.Functions = $functionNames.Count
+    }
+    catch {
+        $result.Status = 'Failed'
+        $result.Error = $_.Exception.Message
+        $global:ModuleLoaderFailed = $true
+    }
+    finally {
+        $timer.Stop()
+        $result.LoadTimeMs = [math]::Round($timer.Elapsed.TotalMilliseconds, 2)
+        $script:ModuleLoadResults.Add($result)
+    }
+}
+
 # ── Summary display function ────────────────────────────────────────────────────
 function Show-ModuleLoaderSummary {
     if ($script:ModuleLoadTimer.IsRunning) { $script:ModuleLoadTimer.Stop() }
@@ -121,13 +195,13 @@ function Show-ModuleLoaderSummary {
         return
     }
 
-    $succ = $script:ModuleLoadResults | Where-Object Status -EQ 'Success' | Sort-Object ModuleName
+    $succ = $script:ModuleLoadResults | Where-Object { $_.Status -in @('Success','Lazy') } | Sort-Object ModuleName
     $fail = $script:ModuleLoadResults | Where-Object Status -EQ 'Failed'  | Sort-Object ModuleName
 
     if ($succ.Count) {
-        Write-Host "`n  Modules Successfully Loaded:" -ForegroundColor Green
+        Write-Host "`n  Modules Loaded or Registered:" -ForegroundColor Green
         foreach ($m in $succ) {
-            Write-Host "   - $($m.ModuleName): $($m.Functions) fn, $($m.Aliases) alias - $($m.LoadTimeMs) ms"
+            Write-Host "   - $($m.ModuleName) [$($m.LoadMode)]: $($m.Functions) fn, $($m.Aliases) alias - $($m.LoadTimeMs) ms"
             if ($global:AliasOverrides -and $global:AliasOverrides.Count) {
                 $moduleOverrides = $global:AliasOverrides | Where-Object ModuleName -EQ $m.ModuleName
                 if ($moduleOverrides.Count) {
@@ -166,7 +240,7 @@ if (-not (Test-Path $path -PathType Container)) {
 }
 else {
     $all = Get-ChildItem -Path $path -Filter '*.psm1' -ErrorAction Stop |
-           Where-Object BaseName -NotIn @($current, 'DebugUtils')
+           Where-Object BaseName -NotIn @($current, 'DebugUtils', 'AutoExportModule')
 
     if ($Global:OrderedModules -is [array] -and $Global:OrderedModules.Count) {
         $first  = $all | Where-Object { $Global:OrderedModules -contains $_.BaseName }
@@ -178,8 +252,14 @@ else {
     }
 
     foreach ($mod in $toLoad) {
-        Initialize-Module -ModuleName $mod.BaseName -ModulePath $mod.FullName
+        if ($Global:LazyModules -is [array] -and $Global:LazyModules -contains $mod.BaseName) {
+            Register-LazyModule -ModuleName $mod.BaseName -ModulePath $mod.FullName
+        }
+        else {
+            Initialize-Module -ModuleName $mod.BaseName -ModulePath $mod.FullName
+        }
     }
+    $script:ModuleLoadTimer.Stop()
 }
 
 # ── Export the summary function ─────────────────────────────────────────────────

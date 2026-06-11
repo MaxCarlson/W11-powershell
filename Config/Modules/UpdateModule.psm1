@@ -68,7 +68,11 @@ function Update-AllPackages {
         @{ Name = "Chocolatey"; Command = { Start-Process -FilePath "choco" -ArgumentList "upgrade all -y" -NoNewWindow -Wait } }
         @{ Name = "Scoop"; Command = { scoop update } }
         @{ Name = "Conda"; Command = { Start-Process -FilePath "conda" -ArgumentList "update --all --yes" -NoNewWindow -Wait } }
-        @{ Name = "Pip"; Command = { cmd /c "pip list --outdated --format=freeze | ForEach-Object { ($_ -split '=')[0] } | ForEach-Object { pip install --upgrade $_ }" } }
+        @{ Name = "Pip"; Command = {
+            python -m pip list --outdated --format=json |
+                ConvertFrom-Json |
+                ForEach-Object { python -m pip install --upgrade $_.name }
+        } }
     )
 
     foreach ($update in $updateCommands) {

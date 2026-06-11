@@ -61,7 +61,6 @@ function gl { git pull @args }
 function ga { git add @args }
 function gp { git push @args }
 function gaa  { git add --all }
-function gp { git push }
 function gam  { git am }
 function gama  { git am --abort }
 function gamc  { git am --continue }
@@ -82,11 +81,9 @@ function gbgd  { git branch -vv | Select-String ': gone\]' | ForEach-Object { gi
 function gbl  { git blame -w }
 function gchB  { git checkout -B }
 function gchb  { git checkout -b }
-function gchD  { ch }
 function gcfg  { git config --list }
 function gclR  { git clone --recurse-submodules }
 function gcln  { git clean --interactive -d }
-function gchm  { ch }
 function gtco  { git checkout }
 function gchkR  { git checkout --recurse-submodules }
 function gtlog  { git shortlog --summary --numbered }
@@ -95,7 +92,6 @@ function gchpa  { git cherry-pick --abort }
 function gchpc  { git cherry-pick --continue }
 function gd  { git diff }
 function gdca  { git diff --cached }
-function gdct  { dc }
 function gdcw  { git diff --cached --word-diff }
 function gds  { git diff --staged }
 function gdt  { git diff-tree --no-commit-id --name-only -r }
@@ -135,7 +131,6 @@ function gcmtcs! { git commit --verbose --all --signoff --no-edit --amend @args 
 function gcmsoA { git commit --all --signoff @args }
 function gcmsoM { git commit --all --signoff --message @args }
 function gcmtmsg { git commit --message @args }
-function gcmsg { git commit --gpg-sign @args }
 function gcmsg { git commit -m @args }
 function gcmsoMsg { git commit --signoff --message @args }
 function gcmtcsigS { git commit --gpg-sign --signoff @args }

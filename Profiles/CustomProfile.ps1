@@ -317,6 +317,70 @@ $Global:OrderedModules = @()
 Write-Debug "Ordered modules set: $($Global:OrderedModules -join ', ')" -Channel Debug -Condition $global:DebugProfile
 Log-Time 'Module order configured'
 
+# Modules registered with lightweight wrapper functions and imported on first use.
+# Keep modules here when they provide occasional commands or expensive import-time setup.
+$Global:LazyModules = @(
+    'BackupAndRestore',
+    'Cheatsh',
+    'Coloring',
+    'Downloader',
+    'Extractor',
+    'GitHubExplorer',
+    'Installer',
+    'JobsModule',
+    'LinkManager',
+    'Monitoring',
+    'PSProfiler',
+    'TmuxModule'
+)
+$Global:LazyModuleFunctions = @{
+    BackupAndRestore = @(
+        'Backup-All',
+        'Restore-All',
+        'Backup-EnvironmentVariables',
+        'Restore-EnvironmentVariables',
+        'Backup-FirewallRules',
+        'Restore-FirewallRules',
+        'Backup-RegistryKeys',
+        'Restore-RegistryKeys',
+        'Backup-ScheduledTasks',
+        'Restore-ScheduledTasks'
+    )
+    Cheatsh = @('cht')
+    Coloring = @('Write-Color')
+    Downloader = @('Get-File')
+    Extractor = @('Expand-CustomArchive')
+    GitHubExplorer = @('Start-GitHubExplorer')
+    Installer = @(
+        'Test-ProgramInstallation',
+        'Install-WingetPackageManager',
+        'Install-ChocolateyPackageManager',
+        'Install-ScoopPackageManager',
+        'Install-Program'
+    )
+    JobsModule = @('Start-BackgroundJob','Get-ActiveJobs','Get-JobOutput','Stop-JobByIdOrName','Stop-AllJobs')
+    LinkManager = @('New-Link','Remove-Link')
+    Monitoring = @('Get-LogFileList','Watch-LogFile','Watch-CommonLog')
+    PSProfiler = @(
+        'New-PSProfilerStopwatch',
+        'Start-PSProfilerStopwatch',
+        'Stop-PSProfilerStopwatch',
+        'Reset-PSProfilerStopwatch',
+        'Get-PSProfilerElapsedTime',
+        'New-PSProfilerTimer',
+        'Get-PSProfilerTimerRemaining',
+        'Get-PSProfilerTimerExpired',
+        'Measure-PSProfiler',
+        'New-PSProfiler',
+        'Invoke-PSProfilerBlock',
+        'Get-PSProfilerReport',
+        'Wait-PSProfilerTimeLimit',
+        'Get-Stopwatch'
+    )
+    TmuxModule = @('Test-Tmux','ts','tsl','tsn','tsf','tsd','tsr','tsnxt','tsrename','tmd')
+}
+Write-Debug "Lazy modules set: $($Global:LazyModules -join ', ')" -Channel Debug -Condition $global:DebugProfile
+
 # --- Load Core Utility Modules ---
 $DebugUtilsPath = Join-Path $Global:ProfileModulesPath 'DebugUtils.psm1'
 Import-ProfileModule -Path $DebugUtilsPath -Name 'DebugUtils'
@@ -342,7 +406,7 @@ try {
 
 if (Get-Command fnm -ErrorAction SilentlyContinue) {
     try {
-        fnm env | ForEach-Object { Invoke-Expression $_ }
+        fnm env 2>$null | ForEach-Object { Invoke-Expression $_ }
         Log-Time 'FNM initialized'
     } catch {
         Write-Warning "Failed FNM init: $($_.Exception.Message)"

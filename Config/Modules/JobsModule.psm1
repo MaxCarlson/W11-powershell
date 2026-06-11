@@ -1,6 +1,12 @@
 # JobsModule.psm1
 
 $script:MODULE_NAME = "JobsModule"
+$script:PersistentJobs = @{}
+
+function script:Get-JobLogPath {
+    param([Parameter(Mandatory)][string]$JobName)
+    Join-Path ([System.IO.Path]::GetTempPath()) "$JobName.log"
+}
 
 # Function to start a background job that persists across SSH sessions
 function Start-BackgroundJob {
@@ -27,18 +33,32 @@ function Start-BackgroundJob {
         [string]$Command
     )
 
-    # Generate a unique job name
     $JobName = "Job_$(Get-Random)"
+    $LogPath = Get-JobLogPath -JobName $JobName
 
     if ($IsWindows) {
-        # Windows: Start a completely detached PowerShell process
-        Start-Process -NoNewWindow -FilePath "pwsh" -ArgumentList "-Command $Command" -PassThru | ForEach-Object {
-            Write-Output "Job started: PID $($_.Id), Name $JobName"
+        $process = Start-Process -WindowStyle Hidden -FilePath "pwsh" -ArgumentList @(
+            '-NoLogo',
+            '-NoProfile',
+            '-Command',
+            "& { $Command } *> '$LogPath'"
+        ) -PassThru
+        $script:PersistentJobs[$process.Id] = [pscustomobject]@{
+            Id      = $process.Id
+            Name    = $JobName
+            Command = $Command
+            LogPath = $LogPath
         }
+        Write-Output "Job started: PID $($process.Id), Name $JobName, Log: $LogPath"
     } else {
-        # Linux/macOS: Use nohup to detach process
-        nohup pwsh -Command "$Command" > "/tmp/$JobName.log" 2>&1 &
-        Write-Output "Job started: Name $JobName, Log: /tmp/$JobName.log"
+        $process = Start-Process -FilePath "nohup" -ArgumentList @('pwsh', '-NoLogo', '-NoProfile', '-Command', $Command) -RedirectStandardOutput $LogPath -RedirectStandardError $LogPath -PassThru
+        $script:PersistentJobs[$process.Id] = [pscustomobject]@{
+            Id      = $process.Id
+            Name    = $JobName
+            Command = $Command
+            LogPath = $LogPath
+        }
+        Write-Output "Job started: PID $($process.Id), Name $JobName, Log: $LogPath"
     }
 }
 
@@ -55,10 +75,11 @@ function Get-ActiveJobs {
         Get-ActiveJobs
     #>
 
-    if ($IsWindows) {
-        Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -match "pwsh" } | Select-Object ProcessId, CommandLine
-    } else {
-        ps -ef | grep "[p]wsh"
+    foreach ($job in $script:PersistentJobs.Values) {
+        $process = Get-Process -Id $job.Id -ErrorAction SilentlyContinue
+        if ($process) {
+            $job
+        }
     }
 }
 
@@ -94,16 +115,24 @@ function Stop-JobByIdOrName {
 
     if ($JobId) {
         foreach ($id in $JobId) {
+            if (-not $script:PersistentJobs.ContainsKey($id)) {
+                Write-Output "PID $id is not tracked by JobsModule. Skipping."
+                continue
+            }
             Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+            $script:PersistentJobs.Remove($id)
             Write-Output "Stopped job with PID: $id"
         }
     }
 
     if ($JobName) {
         foreach ($name in $JobName) {
-            $processes = Get-Process | Where-Object { $_.ProcessName -like "*$name*" }
-            if ($processes) {
-                $processes | Stop-Process -Force
+            $matches = @($script:PersistentJobs.Values | Where-Object { $_.Name -like "*$name*" -or $_.Command -like "*$name*" })
+            if ($matches) {
+                foreach ($job in $matches) {
+                    Stop-Process -Id $job.Id -Force -ErrorAction SilentlyContinue
+                    $script:PersistentJobs.Remove($job.Id)
+                }
                 Write-Output "Stopped job(s) matching name: $name"
             } else {
                 Write-Output "No job found with name: $name"
@@ -129,14 +158,11 @@ function Stop-AllJobs {
         Stop-AllJobs
     #>
 
-    if ($IsWindows) {
-        Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -match "pwsh" } | ForEach-Object {
-            Stop-Process -Id $_.ProcessId -Force
-        }
-    } else {
-        ps -ef | grep "[p]wsh" | awk '{print $2}' | xargs kill -9
+    foreach ($job in @($script:PersistentJobs.Values)) {
+        Stop-Process -Id $job.Id -Force -ErrorAction SilentlyContinue
+        $script:PersistentJobs.Remove($job.Id)
     }
-    Write-Output "Stopped all persistent PowerShell jobs."
+    Write-Output "Stopped all JobsModule-tracked persistent jobs."
 }
 
 # Function to track and display job output, with optional in-place printing
@@ -174,13 +200,19 @@ function Get-JobOutput {
         return
     }
 
+    $tracked = $script:PersistentJobs[$JobId]
+    if (-not $tracked) {
+        Write-Error "Job $JobId is not tracked by JobsModule."
+        return
+    }
+
     Write-Output "Tracking job: PID $JobId"
 
     if ($InPlace) {
         $cursor = [System.Console]::GetCursorPosition()
 
         while (-not $process.HasExited) {
-            $output = Get-Content "/tmp/Job_$JobId.log" -Tail 10
+            $output = Get-Content $tracked.LogPath -Tail 10 -ErrorAction SilentlyContinue
             if ($output) {
                 [System.Console]::SetCursorPosition($cursor.Item1, $cursor.Item2)
                 Write-Host $output -NoNewline
@@ -191,7 +223,7 @@ function Get-JobOutput {
         Write-Output "`nJob $JobId has completed."
     } else {
         while (-not $process.HasExited) {
-            Get-Content "/tmp/Job_$JobId.log" -Tail 10
+            Get-Content $tracked.LogPath -Tail 10 -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 1
         }
 

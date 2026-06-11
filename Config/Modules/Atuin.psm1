@@ -105,7 +105,7 @@
 # Set Atuin session and history path
 $atuinCommand = Get-Command atuin -ErrorAction SilentlyContinue
 if (-not $atuinCommand) {
-    Write-Warning "Atuin not found in PATH; skipping Atuin module."
+    Write-Debug -Message "Atuin not found in PATH; skipping Atuin module." -Channel Information -Condition $global:DebugProfile
     return
 }
 

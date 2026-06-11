@@ -62,7 +62,7 @@ function l3  { Invoke-Eza -Options @('--icons','--classify','--tree','--level=3'
 function l4  { Invoke-Eza -Options @('--icons','--classify','--tree','--level=4','--git') -Rest $args }
 function l5  { Invoke-Eza -Options @('--icons','--classify','--tree','--level=5','--git') -Rest $args }
 function lt1 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=1','--git') -Rest $args }
-function lt2 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','level=2','--git') -Rest $args }
+function lt2 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=2','--git') -Rest $args }
 function lt3 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=3','--git') -Rest $args }
 function lt4 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=4','--git') -Rest $args }
 function lt5 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=5','--git') -Rest $args }
@@ -70,7 +70,16 @@ function lt5 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','-
 # === Utilities (kept from your original) ===
 function fddots { param([int]$depth = 1) fd --hidden --max-depth $depth '^\.' . }
 function fcount { param([string]$Path = '.') (Get-ChildItem -Path $Path -File).Count }
-function deldirs { Get-ChildItem -Directory | Remove-Item -Recurse -Force }
+function deldirs {
+    [CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact='High')]
+    param()
+
+    Get-ChildItem -Directory | ForEach-Object {
+        if ($PSCmdlet.ShouldProcess($_.FullName, 'Remove directory recursively')) {
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force
+        }
+    }
+}
 
 # === Auto-export all new functions and aliases ===
 Export-AutoExportFunctions -Exclude @()

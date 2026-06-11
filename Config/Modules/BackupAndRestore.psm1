@@ -257,7 +257,7 @@ function Backup-ScheduledTasks {
             $taskName = $task.TaskName
             $sanitizedTaskName = $taskName -replace "[\\/?:<>|*]", "_"
             $taskFile = Join-Path $taskDir "$sanitizedTaskName.xml"
-            Export-ScheduledTask -TaskName $taskName -Path $taskFile
+            Export-ScheduledTask -TaskName $taskName -TaskPath $task.TaskPath | Set-Content -Path $taskFile
         }
 
         Log-Message "Scheduled tasks backed up to $taskDir." $LogFile
@@ -273,7 +273,8 @@ function Backup-ScheduledTasks {
 function Restore-EnvironmentVariables {
     param (
         [string]$BackupDirectory,
-        [string]$LogFile = "$BackupDirectory\Restore.log"
+        [string]$LogFile = "$BackupDirectory\Restore.log",
+        [switch]$RemoveExtra
     )
 
     try {
@@ -283,21 +284,23 @@ function Restore-EnvironmentVariables {
         $userEnvVarsFile = Join-Path $envDir "UserEnvironmentVariables.json"
         if (Test-Path $userEnvVarsFile) {
             $userEnvVars = Get-Content -Path $userEnvVarsFile | ConvertFrom-Json
+            $userEnvVarNames = @($userEnvVars.PSObject.Properties.Name)
             $existingUserVars = [Environment]::GetEnvironmentVariables("User")
             $existingKeys = $existingUserVars.Keys
-            $count = $userEnvVars.Count
+            $count = [Math]::Max($userEnvVarNames.Count, 1)
             $current = 0
 
-            # Remove variables not in the backup
-            foreach ($existingKey in $existingKeys) {
-                if (-not $userEnvVars.ContainsKey($existingKey)) {
-                    [Environment]::SetEnvironmentVariable($existingKey, $null, "User")
-                    Log-Message "Removed redundant user variable: ${existingKey}" $LogFile
+            if ($RemoveExtra) {
+                foreach ($existingKey in $existingKeys) {
+                    if ($userEnvVarNames -notcontains $existingKey) {
+                        [Environment]::SetEnvironmentVariable($existingKey, $null, "User")
+                        Log-Message "Removed redundant user variable: ${existingKey}" $LogFile
+                    }
                 }
             }
 
             # Restore or overwrite variables
-            foreach ($key in $userEnvVars.Keys) {
+            foreach ($key in $userEnvVarNames) {
                  $current++
                  Show-Progress -Activity "Restoring User Environment Variables" -Status "Processing ${key}" -PercentComplete (($current / $count) * 100)
                 # Case-insensitive check for existing variables
@@ -314,7 +317,7 @@ function Restore-EnvironmentVariables {
                     }
                 }
                 try {
-                    [Environment]::SetEnvironmentVariable($key, $userEnvVars[$key], "User")
+                    [Environment]::SetEnvironmentVariable($key, $userEnvVars.$key, "User")
                     Log-Message "Restored user variable: ${key}" $LogFile
                 } catch {
                    Log-Message "Error restoring user variable ${key}: $_"
@@ -330,21 +333,23 @@ function Restore-EnvironmentVariables {
         $systemEnvVarsFile = Join-Path $envDir "SystemEnvironmentVariables.json"
         if (Test-Path $systemEnvVarsFile) {
             $systemEnvVars = Get-Content -Path $systemEnvVarsFile | ConvertFrom-Json
+            $systemEnvVarNames = @($systemEnvVars.PSObject.Properties.Name)
             $existingSystemVars = [Environment]::GetEnvironmentVariables("Machine")
             $existingKeys = $existingSystemVars.Keys
-            $count = $systemEnvVars.Count
+            $count = [Math]::Max($systemEnvVarNames.Count, 1)
             $current = 0
 
-            # Remove variables not in the backup
-            foreach ($existingKey in $existingKeys) {
-                if (-not $systemEnvVars.ContainsKey($existingKey)) {
-                    [Environment]::SetEnvironmentVariable($existingKey, $null, "Machine")
-                    Log-Message "Removed redundant system variable: ${existingKey}" $LogFile
+            if ($RemoveExtra) {
+                foreach ($existingKey in $existingKeys) {
+                    if ($systemEnvVarNames -notcontains $existingKey) {
+                        [Environment]::SetEnvironmentVariable($existingKey, $null, "Machine")
+                        Log-Message "Removed redundant system variable: ${existingKey}" $LogFile
+                    }
                 }
             }
 
             # Restore or overwrite variables
-            foreach ($key in $systemEnvVars.Keys) {
+            foreach ($key in $systemEnvVarNames) {
                 $current++
                 Show-Progress -Activity "Restoring System Environment Variables" -Status "Processing ${key}" -PercentComplete (($current / $count) * 100)
                 # Case-insensitive check for existing variables
@@ -361,7 +366,7 @@ function Restore-EnvironmentVariables {
                     }
                 }
                 try {
-                     [Environment]::SetEnvironmentVariable($key, $systemEnvVars[$key], "Machine")
+                     [Environment]::SetEnvironmentVariable($key, $systemEnvVars.$key, "Machine")
                     Log-Message "Restored system variable: ${key}" $LogFile
                 } catch {
                      Log-Message "Error restoring system variable ${key}: $_"
@@ -412,12 +417,16 @@ function Restore-RegistryKeys {
 
     try {
         $registryDir = Join-Path $BackupDirectory "Registry"
-        $registryBackupFile = Join-Path $registryDir "RegistryBackup.reg"
-        if (Test-Path $registryBackupFile) {
-           Show-Progress -Activity "Restoring Registry Keys" -Status "Importing keys" -PercentComplete 50
-            reg import $registryBackupFile | Out-Null
+        $registryBackupFiles = @(Get-ChildItem -Path $registryDir -Filter '*.reg' -File -ErrorAction SilentlyContinue)
+        if ($registryBackupFiles.Count -gt 0) {
+            $current = 0
+            foreach ($registryBackupFile in $registryBackupFiles) {
+                $current++
+                Show-Progress -Activity "Restoring Registry Keys" -Status "Importing $($registryBackupFile.Name)" -PercentComplete (($current / $registryBackupFiles.Count) * 100)
+                reg import $registryBackupFile.FullName | Out-Null
+            }
              Show-Progress -Activity "Restoring Registry Keys" -Status "Completed" -PercentComplete 100
-            Log-Message "Registry keys restored from $registryBackupFile." $LogFile
+            Log-Message "Registry keys restored from $registryDir." $LogFile
              Write-Output "Registry keys restored successfully from $registryDir."
         } else {
              Write-Output "No backup file found for registry keys."
@@ -528,8 +537,4 @@ function Restore-All {
     }
 }
 
-# Exported functions
 Export-ModuleMember -Function Backup-All, Restore-All, Backup-EnvironmentVariables, Restore-EnvironmentVariables, Backup-FirewallRules, Restore-FirewallRules, Backup-RegistryKeys, Restore-RegistryKeys, Backup-ScheduledTasks, Restore-ScheduledTasks
-
-# Dot source the helper functions to make them available within the module scope
-. $PSScriptRoot\BackupAndRestore.psm1
