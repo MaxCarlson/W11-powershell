@@ -8,10 +8,27 @@ if (-not $global:ModuleImportedCDModule) {
 # Directory navigation functions using dynamic paths from profile
 # These paths are auto-detected in CustomProfile.ps1
 
+# Module-local navigation roots. Keep dependent destinations derived from these
+# values so a folder move normally needs one update here.
+$script:HomePath = $HOME
+$script:DotfilesPath = Join-Path $script:HomePath 'src\dotfiles'
+$script:DownloadsPath = Join-Path $script:HomePath 'Downloads'
+$script:ObsidianVaultPath = Join-Path $script:HomePath 'Documents\Obsidian-Vault'
+$script:ScriptsRepoFallbackPath = Join-Path $script:HomePath 'Repos\scripts'
+$script:PowerShellRepoFallbackPath = Join-Path $script:HomePath 'Repos\W11-powershell'
+$script:DotfilesRepoFallbackPath = Join-Path $script:HomePath 'dotfiles'
+$script:CTorrentsPath = 'C:\Torrents'
+$script:DTorrentsPath = 'D:\Torrents'
+$script:PicturesSavedPath = 'D:\Pictures\Saved'
+$script:TmpVidsPath = Join-Path $script:PicturesSavedPath 'tmpvids'
+$script:YtaedlConfinementPath = Join-Path $script:TmpVidsPath 'ytaedl_confinement'
+$script:PicturesPath = Join-Path $script:PicturesSavedPath 'Pics'
+$script:HentaiImagesPath = Join-Path $script:PicturesPath 'hentaiImages'
+
 # Standard Windows directories
-function cdd { Set-Location "$HOME\src\dotfiles\" }
-function cddl { Set-Location "$HOME\Downloads\"}
-function cdobs { Set-Location "$HOME\Documents\Obsidian-Vault\" }
+function cdd { Set-Location $script:DotfilesPath }
+function cddl { Set-Location $script:DownloadsPath }
+function cdobs { Set-Location $script:ObsidianVaultPath }
 
 # Repository directories (dynamically detected)
 function cdsrc {
@@ -19,7 +36,7 @@ function cdsrc {
         Set-Location $global:REPOS_DIR
     } else {
         Write-Warning "REPOS_DIR not found. Set `$env:SCRIPTS_REPO or `$env:PWSH_REPO"
-        Set-Location "$HOME\Repos\"
+        Set-Location (Join-Path $script:HomePath 'Repos')
     }
 }
 
@@ -28,7 +45,7 @@ function cds {
         Set-Location $global:SCRIPTS_REPO
     } else {
         Write-Warning "SCRIPTS_REPO not found. Set `$env:SCRIPTS_REPO"
-        Set-Location "$HOME\Repos\scripts\"
+        Set-Location $script:ScriptsRepoFallbackPath
     }
 }
 
@@ -36,7 +53,7 @@ function cdsm {
     if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
         Set-Location (Join-Path $global:SCRIPTS_REPO "modules")
     } else {
-        Set-Location "$HOME\Repos\scripts\modules\"
+        Set-Location (Join-Path $script:ScriptsRepoFallbackPath 'modules')
     }
 }
 
@@ -44,7 +61,7 @@ function cdspy {
     if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
         Set-Location (Join-Path $global:SCRIPTS_REPO "pyscripts")
     } else {
-        Set-Location "$HOME\Repos\scripts\pyscripts\"
+        Set-Location (Join-Path $script:ScriptsRepoFallbackPath 'pyscripts')
     }
 }
 
@@ -52,7 +69,7 @@ function cdsps {
     if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
         Set-Location (Join-Path $global:SCRIPTS_REPO "pscripts")
     } else {
-        Set-Location "$HOME\Repos\scripts\pscripts\"
+        Set-Location (Join-Path $script:ScriptsRepoFallbackPath 'pscripts')
     }
 }
 
@@ -63,7 +80,7 @@ function cdpwsh {
         Set-Location $global:PWSH_REPO
     } else {
         Write-Warning "PWSH_REPO not found. Set `$env:PWSH_REPO"
-        Set-Location "$HOME\Repos\W11-powershell\"
+        Set-Location $script:PowerShellRepoFallbackPath
     }
 }
 
@@ -73,7 +90,7 @@ function cdmo {
     if ($global:PWSH_REPO -and (Test-Path $global:PWSH_REPO)) {
         Set-Location (Join-Path $global:PWSH_REPO "Config\Modules")
     } else {
-        Set-Location "$HOME\Repos\W11-powershell\Config\Modules"
+        Set-Location (Join-Path $script:PowerShellRepoFallbackPath 'Config\Modules')
     }
 }
 
@@ -82,15 +99,16 @@ function cddot {
         Set-Location $global:DOTFILES_REPO
     } else {
         Write-Warning "DOTFILES_REPO not found. Set `$env:DOTFILES_REPO"
-        Set-Location "$HOME\dotfiles\"
+        Set-Location $script:DotfilesRepoFallbackPath
     }
 }
-function cdtor { Set-Location "C:\Torrents"}
-function cdtord { Set-Location "D:\Torrents"}
-function cdpo { Set-Location "D:\Pictures\Saved\" }
-function cdpon { Set-Location "D:\Pictures\Saved\tmpvids" }
-function cdpoi { Set-Location "D:\Pictures\Saved\Pics\" }
-function cdpoh { Set-Location "D:\Pictures\Saved\Pics\hentaiImages" }
+function cdtor { Set-Location $script:CTorrentsPath }
+function cdtord { Set-Location $script:DTorrentsPath }
+function cdpo { Set-Location $script:PicturesSavedPath }
+function cdpon { Set-Location $script:TmpVidsPath }
+function cdpony { Set-Location $script:YtaedlConfinementPath }
+function cdpoi { Set-Location $script:PicturesPath }
+function cdpoh { Set-Location $script:HentaiImagesPath }
 
 # Setting Aliases, lots of UNIX aliases have been converted to powershell here
 # Functions for changing directories

@@ -321,7 +321,6 @@ Log-Time 'Module order configured'
 # Keep modules here when they provide occasional commands or expensive import-time setup.
 $Global:LazyModules = @(
     'BackupAndRestore',
-    'CDModule',
     'Cheatsh',
     'Coloring',
     'Downloader',
