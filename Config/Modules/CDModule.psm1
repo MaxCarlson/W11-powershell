@@ -20,6 +20,7 @@ $script:DotfilesRepoFallbackPath = Join-Path $script:HomePath 'dotfiles'
 $script:CTorrentsPath = 'C:\Torrents'
 $script:DTorrentsPath = 'D:\Torrents'
 $script:PicturesSavedPath = 'D:\Pictures\Saved'
+$script:B_Path = 'B:\'
 $script:TmpVidsPath = Join-Path $script:PicturesSavedPath 'tmpvids'
 $script:YtaedlConfinementPath = Join-Path $script:TmpVidsPath 'ytaedl_confinement'
 $script:PicturesPath = Join-Path $script:PicturesSavedPath 'Pics'
@@ -27,6 +28,8 @@ $script:HentaiImagesPath = Join-Path $script:PicturesPath 'hentaiImages'
 
 # Standard Windows directories
 function cdd { Set-Location $script:DotfilesPath }
+function cdb { Set-Location $script:B_Path }
+function cdbh { Set-Location (Join-Path $script:B_Path 'Hent') }
 function cddl { Set-Location $script:DownloadsPath }
 function cdobs { Set-Location $script:ObsidianVaultPath }
 

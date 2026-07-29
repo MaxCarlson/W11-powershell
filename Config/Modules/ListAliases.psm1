@@ -1,6 +1,10 @@
-# File: Config/Modules/ListAliases.psm1
+# Replacement candidate for ListAliases.psm1.
+#
+# Changes from the original:
+# - `ll` omits per-file Git status for faster routine directory listings.
+# - `llg` retains the original Git-aware `ll` behavior.
+# - `Invoke-Eza` caches eza and bypasses glob-expansion work without arguments.
 
-# Import Guard
 if (-not $script:ModuleImportedListAliases) {
     $script:ModuleImportedListAliases = $true
 } else {
@@ -8,19 +12,18 @@ if (-not $script:ModuleImportedListAliases) {
     return
 }
 
-# Module debug wiring
 $script:MODULE_NAME       = 'ListAliases'
 $script:DEBUG_LISTALIASES = $false
 $script:WRITE_TO_DEBUG    = ($DebugProfile -or $DEBUG_LISTALIASES)
 
-# Bring in the generic glob expansion/invocation helper
 if (-not (Get-Module -Name NativeGlob)) {
     Import-Module -Name "$PSScriptRoot\NativeGlob.psm1" -ErrorAction Stop
 }
 
-# --- Thin eza wrapper using the generic invoker (relative + leaf behavior on) ---
+$script:EzaCommand = $null
+
 function Invoke-Eza {
-<#
+<##
 .SYNOPSIS
 Calls eza with your presets and PowerShell-style glob expansion, while keeping
 output concise (no absolute paths for simple globs).
@@ -31,15 +34,29 @@ output concise (no absolute paths for simple globs).
         [Parameter(ValueFromRemainingArguments=$true)]
         [string[]]$Rest
     )
+
+    if (-not $script:EzaCommand) {
+        $script:EzaCommand = Get-Command eza -CommandType Application -ErrorAction SilentlyContinue
+    }
+
+    if (-not $script:EzaCommand) {
+        Write-Debug -Message 'Command not found on PATH: eza' -Channel 'Error' -Condition $true -FileAndLine
+        return
+    }
+
+    if (-not $Rest -or $Rest.Count -eq 0) {
+        & $script:EzaCommand @Options
+        return
+    }
+
     Invoke-NativeWithExpansion -Command 'eza' -Options $Options -Rest $Rest -UseDoubleDash -PreferRelative -LeafForLocal
 }
-# ------------------------------------------------------------------------------
 
-# === Simplified Eza “ls” functions (glob-aware; full set preserved) ===
 function l   { Invoke-Eza -Options @('--no-permissions','--git','--icons','--no-user') -Rest $args }
 function ls  { Invoke-Eza -Options @('-lah','--no-permissions','--git','--icons','--modified','--group-directories-first','--smart-group','--no-user') -Rest $args }
 function la  { Invoke-Eza -Options @('-a','--no-permissions','--git','--icons','--classify','--grid','--group-directories-first') -Rest $args }
-function ll  { Invoke-Eza -Options @('-lah','--no-permissions','--git','--icons','--created','--group-directories-first','--smart-group','--no-user') -Rest $args }
+function ll  { Invoke-Eza -Options @('-lah','--no-permissions','--icons','--modified','--group-directories-first','--smart-group','--no-user') -Rest $args }
+function llg { Invoke-Eza -Options @('-lah','--no-permissions','--git','--icons','--created','--group-directories-first','--smart-group','--no-user') -Rest $args }
 function lo  { Invoke-Eza -Options @('-lah','--no-permissions','--git','--icons','--no-user','--no-time','--no-filesize') -Rest $args }
 function lg  { Invoke-Eza -Options @('-lah','--no-permissions','--git','--icons','--created','--modified','--group-directories-first','--smart-group','--git-repos') -Rest $args }
 function lll { Invoke-Eza -Options @('-lah','--git','--icons','--created','--modified','--group-directories-first','--smart-group','--total-size') -Rest $args }
@@ -59,7 +76,6 @@ function lt3 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','-
 function lt4 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=4','--git') -Rest $args }
 function lt5 { Invoke-Eza -Options @('--icons','--classify','--long','--tree','--level=5','--git') -Rest $args }
 
-# === Utilities (kept from your original) ===
 function fddots { param([int]$depth = 1) fd --hidden --max-depth $depth '^\.' . }
 function fcount { param([string]$Path = '.') (Get-ChildItem -Path $Path -File).Count }
 function deldirs {
@@ -75,7 +91,7 @@ function deldirs {
 
 $listAliasFunctions = @(
     'Invoke-Eza',
-    'l','ls','la','ll','lo','lg','lll','laha','lss','lst','lse','lx',
+    'l','ls','la','ll','llg','lo','lg','lll','laha','lss','lst','lse','lx',
     'l1','l2','l3','l4','l5','lt1','lt2','lt3','lt4','lt5',
     'fddots','fcount','deldirs'
 )

@@ -32,7 +32,7 @@
         @{ Name = 'Get-ActiveJobs'; Module = 'JobsModule'; Safety = 'ReadOnly'; Invocation = 'Get-ActiveJobs'; MeasurePrompt = $false; Notes = 'Persistent job inventory' }
         @{ Name = 'Test-ProgramInstallation'; Module = 'Installer'; Safety = 'ReadOnly'; Invocation = 'Test-ProgramInstallation -CommandName pwsh'; MeasurePrompt = $false; Notes = 'Command discovery for pwsh' }
         @{ Name = 'Test-Tmux'; Module = 'TmuxModule'; Safety = 'ReadOnly'; Invocation = 'Test-Tmux'; MeasurePrompt = $false; Notes = 'Tmux command availability' }
-        @{ Name = 'Get-ClipboardContents'; Module = 'ClipboardModule'; Safety = 'ReadOnly'; Invocation = 'Get-ClipboardContents'; MeasurePrompt = $false; Notes = 'Clipboard reader' }
+        @{ Name = 'Get-ClipboardContents'; Module = 'ClipboardModule'; Safety = 'ReadOnly'; Invocation = 'Get-ClipboardContents'; MeasurePrompt = $false; FailurePattern = '(?im)^\s*SyntaxError:'; Notes = 'Clipboard reader' }
         @{ Name = 'Get-UserDefinedAliases'; Module = 'UserDefinedModule'; Safety = 'ReadOnly'; Invocation = 'Get-UserDefinedAliases -Limit 20'; MeasurePrompt = $false; Notes = 'Custom alias inventory' }
     )
 }
