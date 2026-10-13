@@ -209,13 +209,21 @@ function gfo  { git fetch origin }
 function gg  { git gui citool }
 function gga  { git gui citool --amend }
 function gpl { git pull }
-function glg  { git log --stat }
-function glgg  { git log --graph }
+function glg   { git log --stat @args }
+function glgg  { git log --graph @args }
 function glgga  { git log --graph --decorate --all }
 function glgm  { git log --graph --max-count=10 }
 function glgp  { git log --stat --patch }
 function glo  { git log --oneline --decorate }
 function glod  { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset' }
+function glods { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset' --date=short @args }
+function glol  { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset' @args }
+function glola { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset' --all @args }
+function glols { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset' --stat @args }
+function glogs { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset' --stat @args }
+function glog  { git log --oneline --decorate --graph @args }
+function gloga { git log --oneline --decorate --graph --all @args }
+function glc   { git log --graph --pretty=format:'%C(yellow)%h%Creset %C(auto)%d%Creset %Cgreen(%ar)%Creset %C(bold cyan)<%an>%Creset%n  %C(white)%s%Creset' @args }
 
 # Functions for commands that need to take parameters
 function gcam {

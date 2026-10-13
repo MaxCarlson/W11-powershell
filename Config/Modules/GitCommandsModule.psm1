@@ -2,7 +2,7 @@
 
 # Remove default aliases that block git helpers from being imported
 $commandOverrides = @()
-foreach ($aliasName in @('ga', 'gl', 'gp')) {
+foreach ($aliasName in @('ga', 'gl', 'gp', 'glg', 'glgm')) {
     $existingCommands = @(Get-Command -Name $aliasName -All -ErrorAction SilentlyContinue)
     foreach ($cmd in $existingCommands) {
         $definition = switch ($cmd.CommandType) {
@@ -100,13 +100,21 @@ function gfo  { git fetch origin }
 function gg  { git gui citool }
 function gga  { git gui citool --amend }
 function gpl { git pull }
-function glg  { git log --stat }
-function glgg  { git log --graph }
+function glg   { git log --stat @args }
+function glgg  { git log --graph @args }
 function glgga  { git log --graph --decorate --all }
 function glgm  { git log --graph --max-count=10 }
 function glgp  { git log --stat --patch }
 function glo  { git log --oneline --decorate }
 function glod  { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset' }
+function glods { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset' --date=short @args }
+function glol  { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset' @args }
+function glola { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset' --all @args }
+function glols { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset' --stat @args }
+function glogs { git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset' --stat @args }
+function glog  { git log --oneline --decorate --graph @args }
+function gloga { git log --oneline --decorate --graph --all @args }
+function glc   { git log --graph --pretty=format:'%C(yellow)%h%Creset %C(auto)%d%Creset %Cgreen(%ar)%Creset %C(bold cyan)<%an>%Creset%n  %C(white)%s%Creset' @args }
 
 # Functions for commands that need to take parameters
 function gcam {
@@ -137,7 +145,8 @@ $gitFunctions = @(
     'gap','gapa','gapt','gau','gav','gb','gbD','gba','gbd','gbg','gbgD','gbgd',
     'gbl','gchB','gchb','gcfg','gclR','gcln','gtco','gchkR','gtlog','gchp',
     'gchpa','gchpc','gd','gdca','gdcw','gds','gdt','gdw','gf','gfa','gfg','gfo',
-    'gg','gga','gpl','glg','glgg','glgga','glgm','glgp','glo','glod','gcam','gst',
+    'gg','gga','gpl','glg','glgg','glgga','glgm','glgp','glo','glod','glods',
+    'glol','glola','glols','glogs','glog','gloga','glc','gcam','gst',
     'gcmt','gcmt!','gcmtA','gcmtA!','gcmtna!','gcmtcn!','gcmtcs!','gcmsoA',
     'gcmsoM','gcmtmsg','gcmsg','gcmsoMsg','gcmtcsigS','gcmtcssM'
 )
