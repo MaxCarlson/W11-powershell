@@ -11,7 +11,8 @@ if (-not $global:ModuleImportedCDModule) {
 # Module-local navigation roots. Keep dependent destinations derived from these
 # values so a folder move normally needs one update here.
 $script:HomePath = $HOME
-$script:DotfilesPath = Join-Path $script:HomePath 'src\dotfiles'
+$script:SrcRootPath = Join-Path $script:HomePath 'src'
+$script:DotfilesPath = Join-Path $script:SrcRootPath 'dotfiles'
 $script:DownloadsPath = Join-Path $script:HomePath 'Downloads'
 $script:ObsidianVaultPath = Join-Path $script:HomePath 'Documents\Obsidian-Vault'
 $script:ScriptsRepoFallbackPath = Join-Path $script:HomePath 'Repos\scripts'
@@ -26,155 +27,204 @@ $script:YtaedlConfinementPath = Join-Path $script:TmpVidsPath 'ytaedl_confinemen
 $script:PicturesPath = Join-Path $script:PicturesSavedPath 'Pics'
 $script:HentaiImagesPath = Join-Path $script:PicturesPath 'hentaiImages'
 
+function Resolve-CdRepoRoot {
+    param(
+        [string]$GlobalValue,
+        [string]$FallbackPath,
+        [string]$WarningMessage,
+        [switch]$EmitWarnings
+    )
+
+    if ($GlobalValue -and (Test-Path -LiteralPath $GlobalValue -PathType Container)) {
+        return $GlobalValue
+    }
+    if ($EmitWarnings -and $WarningMessage) {
+        Write-Warning $WarningMessage
+    }
+    return $FallbackPath
+}
+
+function Resolve-CdSrcRepoPath {
+    param(
+        [Parameter(Mandatory)][string]$RepoName
+    )
+
+    if ($global:REPOS_DIR -and (Test-Path -LiteralPath $global:REPOS_DIR -PathType Container)) {
+        $candidate = Join-Path $global:REPOS_DIR $RepoName
+        if (Test-Path -LiteralPath $candidate -PathType Container) {
+            return $candidate
+        }
+    }
+    return (Join-Path $script:SrcRootPath $RepoName)
+}
+
+function Resolve-CdMacroPath {
+    <#
+    .SYNOPSIS
+    Resolves a recognized cd* navigation macro name to its target directory path.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [switch]$EmitWarnings
+    )
+
+    switch ($Name.ToLowerInvariant()) {
+        'cdd'    { return $script:DotfilesPath }
+        'cdb'    { return $script:B_Path }
+        'cdbh'   { return (Join-Path $script:B_Path 'Hent') }
+        'cddl'   { return $script:DownloadsPath }
+        'cdobs'  { return $script:ObsidianVaultPath }
+        'cdsrc'  {
+            return (Resolve-CdRepoRoot -GlobalValue $global:REPOS_DIR `
+                -FallbackPath (Join-Path $script:HomePath 'Repos') `
+                -WarningMessage "REPOS_DIR not found. Set `$env:SCRIPTS_REPO or `$env:PWSH_REPO" `
+                -EmitWarnings:$EmitWarnings)
+        }
+        'cdre'   {
+            return (Resolve-CdRepoRoot -GlobalValue $global:REPOS_DIR `
+                -FallbackPath (Join-Path $script:HomePath 'Repos') `
+                -WarningMessage "REPOS_DIR not found. Set `$env:SCRIPTS_REPO or `$env:PWSH_REPO" `
+                -EmitWarnings:$EmitWarnings)
+        }
+        'cds'    {
+            return (Resolve-CdRepoRoot -GlobalValue $global:SCRIPTS_REPO `
+                -FallbackPath $script:ScriptsRepoFallbackPath `
+                -WarningMessage "SCRIPTS_REPO not found. Set `$env:SCRIPTS_REPO" `
+                -EmitWarnings:$EmitWarnings)
+        }
+        'cdsm'   {
+            $root = Resolve-CdRepoRoot -GlobalValue $global:SCRIPTS_REPO -FallbackPath $script:ScriptsRepoFallbackPath
+            return (Join-Path $root 'modules')
+        }
+        'cdspy'  {
+            $root = Resolve-CdRepoRoot -GlobalValue $global:SCRIPTS_REPO -FallbackPath $script:ScriptsRepoFallbackPath
+            return (Join-Path $root 'pyscripts')
+        }
+        'cdsps'  {
+            $root = Resolve-CdRepoRoot -GlobalValue $global:SCRIPTS_REPO -FallbackPath $script:ScriptsRepoFallbackPath
+            return (Join-Path $root 'pscripts')
+        }
+        'cdpwsh' {
+            return (Resolve-CdRepoRoot -GlobalValue $global:PWSH_REPO `
+                -FallbackPath $script:PowerShellRepoFallbackPath `
+                -WarningMessage "PWSH_REPO not found. Set `$env:PWSH_REPO" `
+                -EmitWarnings:$EmitWarnings)
+        }
+        'cdps'   {
+            return (Resolve-CdRepoRoot -GlobalValue $global:PWSH_REPO `
+                -FallbackPath $script:PowerShellRepoFallbackPath `
+                -WarningMessage "PWSH_REPO not found. Set `$env:PWSH_REPO" `
+                -EmitWarnings:$EmitWarnings)
+        }
+        'cdmo'   {
+            $root = Resolve-CdRepoRoot -GlobalValue $global:PWSH_REPO -FallbackPath $script:PowerShellRepoFallbackPath
+            return (Join-Path $root 'Config\Modules')
+        }
+        'cddot'  {
+            return (Resolve-CdRepoRoot -GlobalValue $global:DOTFILES_REPO `
+                -FallbackPath $script:DotfilesRepoFallbackPath `
+                -WarningMessage "DOTFILES_REPO not found. Set `$env:DOTFILES_REPO" `
+                -EmitWarnings:$EmitWarnings)
+        }
+        'cdsh'   { return (Resolve-CdSrcRepoPath -RepoName 'shared-python-modules') }
+        'cdlmt'  { return (Resolve-CdSrcRepoPath -RepoName 'llm-agent-toolkit') }
+        'cdtor'  { return $script:CTorrentsPath }
+        'cdtord' { return $script:DTorrentsPath }
+        'cdpo'   { return $script:PicturesSavedPath }
+        'cdpon'  { return $script:TmpVidsPath }
+        'cdpony' { return $script:YtaedlConfinementPath }
+        'cdpoi'  { return $script:PicturesPath }
+        'cdpoh'  { return $script:HentaiImagesPath }
+        default  { return $null }
+    }
+}
+
+function Invoke-CdMacro {
+    param([Parameter(Mandatory)][string]$Name)
+    $target = Resolve-CdMacroPath -Name $Name -EmitWarnings
+    if ($target) {
+        Set-Location $target
+    }
+}
+
+function Get-CdMacroExpansion {
+    <#
+    .SYNOPSIS
+    Returns an editable cd '<path>' replacement if the cursor is at the end of a
+    recognized cd* macro in command position, or $null otherwise.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowEmptyString()][string]$Line,
+        [int]$Cursor
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Line) -or $Cursor -le 0 -or $Cursor -gt $Line.Length) {
+        return $null
+    }
+
+    $tokens = $null
+    $errors = $null
+    $null = [System.Management.Automation.Language.Parser]::ParseInput($Line, [ref]$tokens, [ref]$errors)
+    if (-not $tokens) { return $null }
+
+    $cmdFlag = [System.Management.Automation.Language.TokenFlags]::CommandName
+    $targetToken = $null
+    foreach ($tok in $tokens) {
+        if ($tok.Kind -eq [System.Management.Automation.Language.TokenKind]::EndOfInput) { continue }
+        if ($tok.Extent.EndOffset -eq $Cursor -and ($tok.TokenFlags -band $cmdFlag)) {
+            $targetToken = $tok
+            break
+        }
+    }
+
+    if (-not $targetToken) { return $null }
+
+    $destination = Resolve-CdMacroPath -Name $targetToken.Text
+    if (-not $destination) { return $null }
+
+    $escaped = $destination.Replace("'", "''")
+    return [pscustomobject]@{
+        Macro       = $targetToken.Text
+        Destination = $destination
+        StartOffset = $targetToken.Extent.StartOffset
+        Length      = ($targetToken.Extent.EndOffset - $targetToken.Extent.StartOffset)
+        Replacement = "cd '$escaped'"
+    }
+}
+
 # Standard Windows directories
-function cdd { Set-Location $script:DotfilesPath }
-function cdb { Set-Location $script:B_Path }
-function cdbh { Set-Location (Join-Path $script:B_Path 'Hent') }
-function cddl { Set-Location $script:DownloadsPath }
-function cdobs { Set-Location $script:ObsidianVaultPath }
+function cdd    { Invoke-CdMacro 'cdd' }
+function cdb    { Invoke-CdMacro 'cdb' }
+function cdbh   { Invoke-CdMacro 'cdbh' }
+function cddl   { Invoke-CdMacro 'cddl' }
+function cdobs  { Invoke-CdMacro 'cdobs' }
 
 # Repository directories (dynamically detected)
-function cdsrc {
-    if ($global:REPOS_DIR -and (Test-Path $global:REPOS_DIR)) {
-        Set-Location $global:REPOS_DIR
-    } else {
-        Write-Warning "REPOS_DIR not found. Set `$env:SCRIPTS_REPO or `$env:PWSH_REPO"
-        Set-Location (Join-Path $script:HomePath 'Repos')
-    }
-}
-
-function cds {
-    if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
-        Set-Location $global:SCRIPTS_REPO
-    } else {
-        Write-Warning "SCRIPTS_REPO not found. Set `$env:SCRIPTS_REPO"
-        Set-Location $script:ScriptsRepoFallbackPath
-    }
-}
-
-function cdsm {
-    if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
-        Set-Location (Join-Path $global:SCRIPTS_REPO "modules")
-    } else {
-        Set-Location (Join-Path $script:ScriptsRepoFallbackPath 'modules')
-    }
-}
-
-function cdspy {
-    if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
-        Set-Location (Join-Path $global:SCRIPTS_REPO "pyscripts")
-    } else {
-        Set-Location (Join-Path $script:ScriptsRepoFallbackPath 'pyscripts')
-    }
-}
-
-function cdsps {
-    if ($global:SCRIPTS_REPO -and (Test-Path $global:SCRIPTS_REPO)) {
-        Set-Location (Join-Path $global:SCRIPTS_REPO "pscripts")
-    } else {
-        Set-Location (Join-Path $script:ScriptsRepoFallbackPath 'pscripts')
-    }
-}
-
-function cdre { cdsrc }
-
-function cdpwsh {
-    if ($global:PWSH_REPO -and (Test-Path $global:PWSH_REPO)) {
-        Set-Location $global:PWSH_REPO
-    } else {
-        Write-Warning "PWSH_REPO not found. Set `$env:PWSH_REPO"
-        Set-Location $script:PowerShellRepoFallbackPath
-    }
-}
-
-function cdps { cdpwsh }
-
-function cdmo {
-    if ($global:PWSH_REPO -and (Test-Path $global:PWSH_REPO)) {
-        Set-Location (Join-Path $global:PWSH_REPO "Config\Modules")
-    } else {
-        Set-Location (Join-Path $script:PowerShellRepoFallbackPath 'Config\Modules')
-    }
-}
-
-function cddot {
-    if ($global:DOTFILES_REPO -and (Test-Path $global:DOTFILES_REPO)) {
-        Set-Location $global:DOTFILES_REPO
-    } else {
-        Write-Warning "DOTFILES_REPO not found. Set `$env:DOTFILES_REPO"
-        Set-Location $script:DotfilesRepoFallbackPath
-    }
-}
-function cdtor { Set-Location $script:CTorrentsPath }
-function cdtord { Set-Location $script:DTorrentsPath }
-function cdpo { Set-Location $script:PicturesSavedPath }
-function cdpon { Set-Location $script:TmpVidsPath }
-function cdpony { Set-Location $script:YtaedlConfinementPath }
-function cdpoi { Set-Location $script:PicturesPath }
-function cdpoh { Set-Location $script:HentaiImagesPath }
+function cdsrc  { Invoke-CdMacro 'cdsrc' }
+function cds    { Invoke-CdMacro 'cds' }
+function cdsm   { Invoke-CdMacro 'cdsm' }
+function cdspy  { Invoke-CdMacro 'cdspy' }
+function cdsps  { Invoke-CdMacro 'cdsps' }
+function cdre   { Invoke-CdMacro 'cdre' }
+function cdpwsh { Invoke-CdMacro 'cdpwsh' }
+function cdps   { Invoke-CdMacro 'cdps' }
+function cdmo   { Invoke-CdMacro 'cdmo' }
+function cddot  { Invoke-CdMacro 'cddot' }
+function cdsh   { Invoke-CdMacro 'cdsh' }
+function cdlmt  { Invoke-CdMacro 'cdlmt' }
+function cdtor  { Invoke-CdMacro 'cdtor' }
+function cdtord { Invoke-CdMacro 'cdtord' }
+function cdpo   { Invoke-CdMacro 'cdpo' }
+function cdpon  { Invoke-CdMacro 'cdpon' }
+function cdpony { Invoke-CdMacro 'cdpony' }
+function cdpoi  { Invoke-CdMacro 'cdpoi' }
+function cdpoh  { Invoke-CdMacro 'cdpoh' }
 
 # Setting Aliases, lots of UNIX aliases have been converted to powershell here
 # Functions for changing directories
 $originalSetLocation = Get-Command Set-Location -CommandType Cmdlet
-
-# Define a custom Set-Location function
-#function Set-Location {
-#    param (
-#        [string]$path
-#    )
-#
-#    switch ($path) {
-#        '...' { & $originalSetLocation ../.. }
-#        '....' { & $originalSetLocation ../../.. }
-#        '.....' { & $originalSetLocation ../../../.. }
-#        '......' { & $originalSetLocation ../../../../.. }
-#        default { & $originalSetLocation $path }
-#    }
-#}
-#
-#
-## Alias for navigating to the previous directory (if needed, implement a custom solution as PowerShell does not support 'cd -')
-#function GoBack {
-#    if ($global:PreviousLocation) {
-#        Set-Location $global:PreviousLocation
-#    }
-#    else {
-#        Write-Host "No previous location found."
-#    }
-#}
-#Set-Alias -Name '-' -Value GoBack
-#
-## Quick Directory Navigation (custom implementation required)
-#$global:LocationStack = @()
-#
-#function Push-LocationStack {
-#    $global:LocationStack += (Get-Location).Path
-#}
-#function Pop-LocationStack {
-#    $index = $args[0]
-#    if ($index -lt $global:LocationStack.Count) {
-#        $path = $global:LocationStack[$index]
-#        $global:LocationStack = $global:LocationStack[0..($index - 1)]
-#        Set-Location $path
-#    }
-#    else {
-#        Write-Host "No such location in stack."
-#    }
-#}
-#
-#function 1 { Pop-LocationStack 1 }
-#function 2 { Pop-LocationStack 2 }
-#function 3 { Pop-LocationStack 3 }
-#function 4 { Pop-LocationStack 4 }
-#function 5 { Pop-LocationStack 5 }
-#function 6 { Pop-LocationStack 6 }
-#function 7 { Pop-LocationStack 7 }
-#function 8 { Pop-LocationStack 8 }
-#function 9 { Pop-LocationStack 9 }
-#
-## Ensure the location is pushed every time the location changes
-#Register-EngineEvent PowerShell.OnIdle -Action { Push-LocationStack }
-
 
 # zoxide version
 
@@ -197,51 +247,3 @@ if (-not (Get-Command z -ErrorAction SilentlyContinue)) {
     Write-Warning "zoxide (z command) not available. CDModule will work with limited functionality."
     # Don't return - allow module to load with other functions
 }
-
-# Alias cd to z (zoxide) directly
-#Set-Alias -Name cd -Value z -Option AllScope
-#Set-Alias -Name z -Value z
-
-
-
-# Function to navigate to the nth previous directory
-#function cd {
-#    param (
-#        [Parameter(Mandatory=$false)][int]$n
-#    )
-#
-#    if ($n -and $n -gt 0) {
-#        # Fetch the list of directories from zoxide's database
-#        $dirs = zoxide query --list
-#
-#        # Ensure the requested index exists in the list
-#        if ($n -le $dirs.Count) {
-#            # Navigate to the nth previous directory
-#            Set-Location $dirs[$n - 1]
-#        } else {
-#            Write-Host "Index $n is out of range. Only $($dirs.Count) directories are available in history."
-#        }
-#    } elseif ($n -eq 0 -or !$n) {
-#        # Default behavior: delegate to zoxide
-#        z
-#    } else {
-#        Write-Host "Invalid input. Use a positive number for 'cd -n' functionality."
-#    }
-#}
-
-
-# Multi-level navigation shortcuts
-#function Set-Location {
-#    param (
-#        [string]$path
-#    )
-#
-#    switch ($path) {
-#        '...' { cd .. }
-#        '....' { cd ../.. }
-#        '.....' { cd ../../.. }
-#        '......' { cd ../../../.. }
-#        '.......' { cd ../../../../.. }
-#        default { cd $path }
-#    }
-#}

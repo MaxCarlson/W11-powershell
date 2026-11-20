@@ -374,6 +374,8 @@ $Global:LazyModuleFunctions = @{
         'cdps',
         'cdmo',
         'cddot',
+        'cdsh',
+        'cdlmt',
         'cdtor',
         'cdtord',
         'cdpo',
