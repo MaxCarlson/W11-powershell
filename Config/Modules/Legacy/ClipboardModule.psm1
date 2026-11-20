@@ -1,3 +1,9 @@
+﻿# LEGACY MODULE — NOT LOADED AUTOMATICALLY
+# - Superseded by Python `clipboard_tools` (`c2c`, `gcb`, `scb`, `pclip`, `cld`, `rwc`, `sfcb`, `apc`, `otc`, `cb2c`, `cb2cf`).
+# - Retained temporarily for historical reference.
+# - Not loaded automatically by ModuleLoader.psm1 (located under Config/Modules/Legacy/).
+# - Not intended for normal interactive sessions.
+
 # pwsh/ClipboardModule.psm1
 
 # Requires your setup to have put bin/ on PATH so the wrappers exist.

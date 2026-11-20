@@ -529,6 +529,11 @@ if (-not $ompExecutable -or -not (Test-Path -LiteralPath $ompExecutable -PathTyp
 }
 
 if ($ompExecutable -and (Test-Path -LiteralPath $ompExecutable -PathType Leaf)) {
+    # Generated init code starts oh-my-posh.exe by name; make the resolved package executable discoverable in SSH sessions.
+    $ompDirectory = Split-Path -Parent $ompExecutable
+    if (($env:PATH -split ';') -notcontains $ompDirectory) {
+        $env:PATH = "$ompDirectory;$env:PATH"
+    }
     try {
         $customTheme = Join-Path $global:SCRIPTS_REPO 'pscripts\atomic-custom.omp.json'
         $bundledTheme = if ($ompPackage -and $ompPackage.InstallLocation) {
