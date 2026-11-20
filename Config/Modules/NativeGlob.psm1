@@ -1,4 +1,4 @@
-# File: Config/Modules/NativeGlob.psm1
+﻿# File: Config/Modules/NativeGlob.psm1
 
 # Auto-export helper (guarded import)
 if (-not (Get-Module -Name AutoExportModule)) {
@@ -64,20 +64,21 @@ the leaf name for each match (e.g., 'file.py').
         if ([string]::IsNullOrWhiteSpace($item)) { continue }
 
         if ($item.StartsWith('-')) { $flags.Add($item); continue }
+        if ($item -eq '.' -or $item -eq '..') { $paths.Add($item); continue }
 
         $tokenHasSep = $item -match '[\\/]|^\w:|^/'
 
-        $hasWild = [System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($item)
-        if ($hasWild) {
-            if ($item.Contains('**')) {
-                $expanded = Get-ChildItem -Path $item -Force -Recurse -ErrorAction SilentlyContinue |
-                            Select-Object -ExpandProperty FullName
-            } else {
-                $expanded = (Resolve-Path -Path $item -ErrorAction SilentlyContinue).Path
-            }
+        if (Test-Path -LiteralPath $item) {
+            $expanded = ,(Resolve-Path -LiteralPath $item -ErrorAction SilentlyContinue).Path
         } else {
-            if (Test-Path -LiteralPath $item) {
-                $expanded = ,(Resolve-Path -LiteralPath $item -ErrorAction SilentlyContinue).Path
+            $hasWild = [System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($item)
+            if ($hasWild) {
+                if ($item.Contains('**')) {
+                    $expanded = Get-ChildItem -Path $item -Force -Recurse -ErrorAction SilentlyContinue |
+                                Select-Object -ExpandProperty FullName
+                } else {
+                    $expanded = (Resolve-Path -Path $item -ErrorAction SilentlyContinue).Path
+                }
             } else {
                 $expanded = @()
             }
@@ -93,7 +94,8 @@ the leaf name for each match (e.g., 'file.py').
             if ($PreferRelative) {
                 try { $out = Resolve-Path -LiteralPath $p -Relative -ErrorAction Stop } catch { $out = $p }
             }
-            if ($LeafForLocal -and -not $tokenHasSep) {
+            $trimmedOut = $out.TrimEnd('\', '/')
+            if ($LeafForLocal -and -not $tokenHasSep -and $trimmedOut -ne '.' -and $trimmedOut -ne '..') {
                 # For simple patterns like '*.py', prefer just the filename
                 $out = Split-Path -Path $out -Leaf
             }
@@ -102,7 +104,7 @@ the leaf name for each match (e.g., 'file.py').
     }
 
     if ($unmatched.Count -gt 0) {
-        Write-Debug -Message ("No matches for: {0}" -f ($unmatched -join ', ')) -Channel 'Warning' -Condition $script:WRITE_TO_DEBUG -FileAndLine
+        Write-Debug ("No matches for: {0}" -f ($unmatched -join ', '))
     }
 
     [pscustomobject]@{
@@ -137,7 +139,7 @@ For tokens without path separators, emit only leaf names (default: on).
 #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$Command,
+        [Parameter(Mandatory)][object]$Command,
         [string[]]$Options,
         [Parameter(ValueFromRemainingArguments=$true)]
         [string[]]$Rest,
@@ -146,13 +148,31 @@ For tokens without path separators, emit only leaf names (default: on).
         [switch]$LeafForLocal   = $true
     )
 
-    $cmdPath = Get-Command $Command -ErrorAction SilentlyContinue
+    $cmdPath = if ($Command -is [System.Management.Automation.CommandInfo]) {
+        $Command
+    } else {
+        $cmdName = [string]$Command
+        $resolved = Get-Command -Name $cmdName -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $resolved) {
+            $resolved = Get-Command -Name $cmdName -ErrorAction SilentlyContinue | Select-Object -First 1
+        }
+        $resolved
+    }
     if (-not $cmdPath) {
-        Write-Debug -Message ("Command not found on PATH: {0}" -f $Command) -Channel 'Error' -Condition $true -FileAndLine
+        Write-Error ("Command not found on PATH: {0}" -f $Command)
+        $global:LASTEXITCODE = 1
         return
     }
 
     $exp = Expand-GlobTokens -Tokens $Rest -PreferRelative:$PreferRelative -LeafForLocal:$LeafForLocal
+
+    if ($exp.Unmatched.Count -gt 0) {
+        Write-Error ("Path not found / no matches for: {0}" -f ($exp.Unmatched -join ', '))
+        if ($exp.Paths.Count -eq 0) {
+            $global:LASTEXITCODE = 1
+            return
+        }
+    }
 
     $argsForCmd = @()
     if ($Options)  { $argsForCmd += $Options }
@@ -165,8 +185,12 @@ For tokens without path separators, emit only leaf names (default: on).
 
     try {
         & $cmdPath @argsForCmd
+        if ($exp.Unmatched.Count -gt 0 -and $LASTEXITCODE -eq 0) {
+            $global:LASTEXITCODE = 1
+        }
     } catch {
-        Write-Debug -Message ("{0} failed: {1}" -f $Command, $_.Exception.Message) -Channel 'Error' -Condition $true -FileAndLine
+        Write-Error ("{0} failed: {1}" -f $cmdPath.Name, $_.Exception.Message)
+        $global:LASTEXITCODE = 1
     }
 }
 

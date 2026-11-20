@@ -1,4 +1,4 @@
-$script:IsSshSession = [bool](
+﻿$script:IsSshSession = [bool](
     $env:SSH_CONNECTION -or
     $env:SSH_CLIENT -or
     $env:SSH_TTY
@@ -201,6 +201,20 @@ $pathsToEnsure = @(
 )
 $pathsToEnsure | ForEach-Object { Add-PathIfMissing $_ }
 
+if ($script:IsSshSession) {
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if ($userPath) {
+        $existingParts = @($env:PATH -split ';' | Where-Object { $_ -ne '' } | ForEach-Object { $_.TrimEnd('\', '/') })
+        foreach ($entry in ($userPath -split ';')) {
+            $norm = $entry.Trim().TrimEnd('\', '/')
+            if ($norm -and ($existingParts -notcontains $norm) -and (Test-Path -LiteralPath $norm -PathType Container)) {
+                $env:PATH = "$env:PATH;$norm"
+                $existingParts += $norm
+            }
+        }
+    }
+}
+
 # --- Global Variables ---
 # Legacy variables for backward compatibility
 $global:OBSIDIAN = 'C:\Users\mcarls\Documents\Obsidian-Vault\'
@@ -360,6 +374,8 @@ $Global:LazyModuleFunctions = @{
         'cdps',
         'cdmo',
         'cddot',
+        'cdsh',
+        'cdlmt',
         'cdtor',
         'cdtord',
         'cdpo',
