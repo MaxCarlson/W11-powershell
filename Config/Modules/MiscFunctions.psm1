@@ -29,6 +29,10 @@ function _ { Start-Process powershell -Verb runAs -ArgumentList ($args -join ' '
 Remove-Item Alias:ag -ErrorAction SilentlyContinue
 Remove-Item Function:ag -ErrorAction SilentlyContinue
 
+# Ensure PowerShell built-in gcb/scb aliases do not shadow Python clipboard entry points
+Remove-Item Alias:gcb -ErrorAction SilentlyContinue
+Remove-Item Alias:scb -ErrorAction SilentlyContinue
+
 function aliasGrepFunction {
     param(
         [Parameter(ValueFromRemainingArguments = $true)]

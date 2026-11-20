@@ -1,4 +1,4 @@
-# ModuleLoader.psm1
+﻿# ModuleLoader.psm1
 
 # ── Always initialize load results list & timer ─────────────────────────────────
 $script:ModuleLoadResults = [System.Collections.Generic.List[PSObject]]::new()
@@ -242,7 +242,7 @@ if (-not (Test-Path $path -PathType Container)) {
 }
 else {
     $all = Get-ChildItem -Path $path -Filter '*.psm1' -ErrorAction Stop |
-           Where-Object BaseName -NotIn @($current, 'DebugUtils', 'AutoExportModule')
+           Where-Object BaseName -NotIn @($current, 'DebugUtils', 'AutoExportModule', 'ClipboardModule')
 
     if ($Global:OrderedModules -is [array] -and $Global:OrderedModules.Count) {
         $first  = $all | Where-Object { $Global:OrderedModules -contains $_.BaseName }
