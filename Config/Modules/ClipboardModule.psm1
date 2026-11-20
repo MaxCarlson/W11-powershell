@@ -15,28 +15,43 @@ Set-Alias -Name gcb -Value Get-ClipboardContents
 function Set-ClipboardContent {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
-        [string]$InputData,
+        [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
+        [string[]]$InputArgs,
         [switch]$Append
     )
-    if (Test-Path -LiteralPath $InputData -PathType Leaf) {
-        # Copy file contents (raw) to clipboard (or append)
-        if ($Append) {
-            copy_to_clipboard -r -a -- $InputData
+    if (-not $InputArgs -or $InputArgs.Count -eq 0) {
+        Write-Error "Set-ClipboardContent requires a file path or literal text."
+        return
+    }
+    if ($InputArgs.Count -eq 1 -and -not $InputArgs[0].StartsWith('-')) {
+        $single = $InputArgs[0]
+        if (Test-Path -LiteralPath $single -PathType Leaf) {
+            if ($Append) {
+                copy_to_clipboard -r -a -- $single
+            } else {
+                copy_to_clipboard -r -- $single
+            }
         } else {
-            copy_to_clipboard -r -- $InputData
+            if ($Append) {
+                $single | set_clipboard_text -a
+            } else {
+                $single | set_clipboard_text
+            }
         }
+        return
+    }
+    $fwd = @()
+    if ($Append) { $fwd += '-a' }
+    $fwd += $InputArgs
+    $c2cExe = Get-Command c2c.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($c2cExe) {
+        & $c2cExe.Source @fwd
     } else {
-        # Treat as literal text; pipe to the helper so huge strings are safe
-        if ($Append) {
-            $InputData | set_clipboard_text -a
-        } else {
-            $InputData | set_clipboard_text
-        }
+        copy_to_clipboard @fwd
     }
 }
 Set-Alias -Name scb -Value Set-ClipboardContent
-Set-Alias -Name c2c -Value Set-ClipboardContent  # your older alias
+Set-Alias -Name c2c -Value Set-ClipboardContent  # preserves literal-or-file compat; forwards flags/multi-files to c2c.exe
 
 function Set-FileClipboard {
     [CmdletBinding()]
@@ -47,9 +62,6 @@ function Set-FileClipboard {
     # Replace file contents with clipboard (Python handles stats & errors)
     replace_with_clipboard -- $Path
 }
-Set-Alias -Name sfc -Value Set-FileClipboard
-Set-Alias -Name rwc -Value Set-FileClipboard  # your older alias
-
 function Add-ClipboardToFile {
     [CmdletBinding()]
     param(
@@ -58,7 +70,6 @@ function Add-ClipboardToFile {
     )
     append_clipboard -- $FilePath
 }
-Set-Alias -Name apc -Value Add-ClipboardToFile
 
 function Invoke-CommandToClipboard {
     [CmdletBinding()]
@@ -76,8 +87,9 @@ function Invoke-CommandToClipboard {
     $argsList += $Command
     output_to_clipboard @argsList
 }
-Set-Alias -Name otc -Value Invoke-CommandToClipboard
 
+# rwc, apc, otc are served directly by Python clipboard_tools console entry points on PATH.
+# sfc is intentionally not aliased here so Windows System File Checker (sfc.exe) is not shadowed.
 Export-ModuleMember `
   -Function Get-ClipboardContents, Set-ClipboardContent, Set-FileClipboard, Add-ClipboardToFile, Invoke-CommandToClipboard `
-  -Alias gcb, scb, c2c, sfc, rwc, apc, otc
+  -Alias gcb, scb, c2c
