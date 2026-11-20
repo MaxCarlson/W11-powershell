@@ -36,11 +36,29 @@ output concise (no absolute paths for simple globs).
     )
 
     if (-not $script:EzaCommand) {
-        $script:EzaCommand = Get-Command eza -CommandType Application -ErrorAction SilentlyContinue
+        $script:EzaCommand = Get-Command eza -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    }
+
+    if (-not $script:EzaCommand -and $env:LOCALAPPDATA) {
+        $wingetCandidates = @(
+            (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\eza.exe')
+        )
+        $pkgRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+        if (Test-Path -LiteralPath $pkgRoot -PathType Container) {
+            $wingetCandidates += Get-ChildItem -Path $pkgRoot -Filter 'eza.exe' -Recurse -Depth 2 -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty FullName
+        }
+        foreach ($candidate in $wingetCandidates) {
+            if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+                $script:EzaCommand = Get-Command -Name $candidate -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($script:EzaCommand) { break }
+            }
+        }
     }
 
     if (-not $script:EzaCommand) {
-        Write-Debug -Message 'Command not found on PATH: eza' -Channel 'Error' -Condition $true -FileAndLine
+        Write-Error "eza executable not found on PATH or in WinGet packages. Install eza (e.g. 'winget install eza-community.eza') or ensure its directory is on PATH."
+        $global:LASTEXITCODE = 1
         return
     }
 

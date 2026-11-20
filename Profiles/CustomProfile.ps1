@@ -1,4 +1,4 @@
-$script:IsSshSession = [bool](
+﻿$script:IsSshSession = [bool](
     $env:SSH_CONNECTION -or
     $env:SSH_CLIENT -or
     $env:SSH_TTY
@@ -200,6 +200,20 @@ $pathsToEnsure = @(
     (Join-Path $env:USERPROFILE '.local\bin')
 )
 $pathsToEnsure | ForEach-Object { Add-PathIfMissing $_ }
+
+if ($script:IsSshSession) {
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if ($userPath) {
+        $existingParts = @($env:PATH -split ';' | Where-Object { $_ -ne '' } | ForEach-Object { $_.TrimEnd('\', '/') })
+        foreach ($entry in ($userPath -split ';')) {
+            $norm = $entry.Trim().TrimEnd('\', '/')
+            if ($norm -and ($existingParts -notcontains $norm) -and (Test-Path -LiteralPath $norm -PathType Container)) {
+                $env:PATH = "$env:PATH;$norm"
+                $existingParts += $norm
+            }
+        }
+    }
+}
 
 # --- Global Variables ---
 # Legacy variables for backward compatibility
