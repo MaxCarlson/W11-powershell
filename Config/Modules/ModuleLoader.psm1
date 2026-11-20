@@ -242,7 +242,7 @@ if (-not (Test-Path $path -PathType Container)) {
 }
 else {
     $all = Get-ChildItem -Path $path -Filter '*.psm1' -ErrorAction Stop |
-           Where-Object BaseName -NotIn @($current, 'DebugUtils', 'AutoExportModule', 'ClipboardModule')
+           Where-Object BaseName -NotIn @($current, 'DebugUtils', 'AutoExportModule')
 
     if ($Global:OrderedModules -is [array] -and $Global:OrderedModules.Count) {
         $first  = $all | Where-Object { $Global:OrderedModules -contains $_.BaseName }
