@@ -63,11 +63,11 @@ output concise (no absolute paths for simple globs).
     }
 
     if (-not $Rest -or $Rest.Count -eq 0) {
-        & $script:EzaCommand @Options
+        & $script:EzaCommand @Options '.'
         return
     }
 
-    Invoke-NativeWithExpansion -Command 'eza' -Options $Options -Rest $Rest -UseDoubleDash -PreferRelative -LeafForLocal
+    Invoke-NativeWithExpansion -Command $script:EzaCommand -Options $Options -Rest $Rest -UseDoubleDash -PreferRelative -LeafForLocal
 }
 
 function l   { Invoke-Eza -Options @('--no-permissions','--git','--icons','--no-user') -Rest $args }
