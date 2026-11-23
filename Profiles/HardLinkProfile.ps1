@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     (Re)create a hard link for your PowerShell CurrentUserCurrentHost profile.
 
@@ -33,8 +33,22 @@
 param(
     [string]$LinkPath   = "$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1",
     [string]$TargetPath = (Join-Path $PSScriptRoot 'CustomProfile.ps1'),
-    [ValidateSet('n','y','a')][string]$Replace
+    [ValidateSet('n','y','a')][string]$Replace,
+    [switch]$LegacyHardLink
 )
+
+if (-not $LegacyHardLink) {
+    $bootstrapScript = Join-Path $PSScriptRoot 'Install-ProfileBootstrap.ps1'
+    if (Test-Path -LiteralPath $bootstrapScript -PathType Leaf) {
+        $applyBootstrap = ($Replace -eq 'y')
+        if ($Replace -eq 'a') {
+            Write-Warning "HardLinkProfile.ps1 '-Replace a' (overwrite without backup) is deprecated; using backup-safe bootstrap install instead."
+            $applyBootstrap = $true
+        }
+        & $bootstrapScript -Action Install -ProfilePaths @($LinkPath) -Apply:$applyBootstrap
+        exit $LASTEXITCODE
+    }
+}
 
 function Write-Color {
     param([string]$Message, [ConsoleColor]$Color = 'White')

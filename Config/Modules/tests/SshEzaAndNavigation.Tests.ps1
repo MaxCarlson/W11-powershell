@@ -271,3 +271,97 @@ Describe 'PSReadLine Tab Keybinding Integration' {
         $tabHandler.Description | Should Match 'Expand cd\* location macros'
     }
 }
+
+Describe 'Durable Bootstrap Profile Installation and Rollback' {
+    BeforeAll {
+        $script:BootstrapScript = Join-Path $repoRoot 'Profiles\Install-ProfileBootstrap.ps1'
+        $script:TempProfileRoot = Join-Path $env:TEMP ("w11pwsh_bootstrap_test_" + [guid]::NewGuid().ToString('N'))
+        $script:TempBackupDir = Join-Path $script:TempProfileRoot 'Backups'
+        $script:DisposableProfile = Join-Path $script:TempProfileRoot 'Microsoft.PowerShell_profile.ps1'
+        $null = New-Item -Path $script:TempProfileRoot -ItemType Directory -Force
+        Set-Content -LiteralPath $script:DisposableProfile -Value '# legacy custom profile content'
+    }
+
+    AfterAll {
+        if ($script:TempProfileRoot -and (Test-Path -LiteralPath $script:TempProfileRoot)) {
+            Remove-Item -LiteralPath $script:TempProfileRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'defaults to dry-run without modifying existing profile or creating backups' {
+        $res = & $script:BootstrapScript -Action Install -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -PassThru
+        $res.Status | Should Be 'DryRun'
+        $res.Applied | Should Be $false
+        (Get-Content -LiteralPath $script:DisposableProfile -Raw).Trim() | Should Be '# legacy custom profile content'
+        (Test-Path -LiteralPath $script:TempBackupDir) | Should Be $false
+    }
+
+    It 'installs bootstrap with timestamped backup, is idempotent, verifies, and rolls back' {
+        $installRes = & $script:BootstrapScript -Action Install -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -Apply -PassThru
+        $installRes.Status | Should Be 'Installed'
+        $installRes.Applied | Should Be $true
+        (Test-Path -LiteralPath $installRes.BackupPath -PathType Leaf) | Should Be $true
+        (Get-Content -LiteralPath $installRes.BackupPath -Raw).Trim() | Should Be '# legacy custom profile content'
+
+        $verifyRes = & $script:BootstrapScript -Action Verify -ProfilePaths @($script:DisposableProfile) -RepoRoot $repoRoot -PassThru
+        $verifyRes.Status | Should Be 'ValidBootstrap'
+
+        $secondInstall = & $script:BootstrapScript -Action Install -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -Apply -PassThru
+        $secondInstall.Status | Should Be 'AlreadyInstalled'
+        $secondInstall.Applied | Should Be $false
+
+        $rollbackDry = & $script:BootstrapScript -Action Rollback -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -PassThru
+        $rollbackDry.Status | Should Be 'DryRun'
+
+        $rollbackRes = & $script:BootstrapScript -Action Rollback -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -Apply -PassThru
+        $rollbackRes.Status | Should Be 'RolledBack'
+        $rollbackRes.Applied | Should Be $true
+        (Get-Content -LiteralPath $script:DisposableProfile -Raw).Trim() | Should Be '# legacy custom profile content'
+
+        # Re-install for downstream isolated session tests
+        $null = & $script:BootstrapScript -Action Install -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -Apply
+    }
+
+    It 'loads CustomProfile.ps1 via disposable bootstrap in simulated SSH session with User PATH and tools' {
+        $out = pwsh -NoProfile -Command @"
+`$env:SSH_CONNECTION = '127.0.0.1 12345 127.0.0.1 22'
+`$env:MAX_FORCE_INTERACTIVE_PWSH = '1'
+`$env:PWSH_REPO = '$repoRoot'
+`$env:PATH = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+. '$script:DisposableProfile'
+foreach (`$cmd in @('eza', 'which', 'fd', 'git', 'ag', 'c2c', 'rwc', 'pclip')) {
+    `$c = Get-Command `$cmd -ErrorAction SilentlyContinue | Select-Object -First 1
+    "`$cmd=`$(`$null -ne `$c)"
+}
+"EXPAND_CDS=`$((Get-CdMacroExpansion -Line 'cds' -Cursor 3).Replacement)"
+"EXPAND_LL_CDS=`$((Get-CdMacroExpansion -Line 'll cds' -Cursor 6).Replacement)"
+ll Config/ | Select-Object -First 2 | Out-Null
+"LL_EXIT=`$LASTEXITCODE"
+l2 Config/ | Select-Object -First 2 | Out-Null
+"L2_EXIT=`$LASTEXITCODE"
+"@
+        $joined = $out -join "`n"
+        $joined | Should Match 'eza=True'
+        $joined | Should Match 'which=True'
+        $joined | Should Match 'fd=True'
+        $joined | Should Match 'git=True'
+        $joined | Should Match 'ag=True'
+        $joined | Should Match 'c2c=True'
+        $joined | Should Match 'rwc=True'
+        $joined | Should Match 'pclip=True'
+        $joined | Should Match 'EXPAND_CDS=~/src/scripts/'
+        $joined | Should Match 'EXPAND_LL_CDS=~/src/scripts/'
+        $joined | Should Match 'LL_EXIT=0'
+        $joined | Should Match 'L2_EXIT=0'
+    }
+
+    It 'preserves automation profile guard when invoked through disposable bootstrap' {
+        $out = pwsh -NoProfile -Command @"
+`$env:MAX_FORCE_AUTOMATION_PWSH = '1'
+`$env:PWSH_REPO = '$repoRoot'
+. '$script:DisposableProfile'
+"ProfileLoaded=`$global:ProfileLoaded"
+"@
+        ($out -join "`n") | Should Match 'ProfileLoaded=$'
+    }
+}
