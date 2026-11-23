@@ -45,23 +45,23 @@ function Invoke-UserSetupCore {
         }
     }
 
-    # Ensure profile hardlink
+    # Ensure durable bootstrap profile (never overwrite without backup)
     if ($EnsureProfileLink) {
         $profileTarget = Join-Path $ScriptBase "Profiles\CustomProfile.ps1"
-        $linkScript = Join-Path $ScriptBase "Profiles\HardLinkProfile.ps1"
+        $bootstrapScript = Join-Path $ScriptBase "Profiles\Install-ProfileBootstrap.ps1"
         $profilePath = "$HOME\Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
         if (-not (Test-Path (Split-Path $profilePath -Parent))) {
             New-Item -ItemType Directory -Path (Split-Path $profilePath -Parent) -Force | Out-Null
         }
         if (-not (Test-Path $profileTarget)) {
             Write-Warning "CustomProfile.ps1 not found at $profileTarget"
-        } elseif (-not (Test-Path $linkScript)) {
-            Write-Warning "HardLinkProfile.ps1 not found at $linkScript"
+        } elseif (-not (Test-Path $bootstrapScript)) {
+            Write-Warning "Install-ProfileBootstrap.ps1 not found at $bootstrapScript"
         } else {
             try {
-                & $linkScript -Replace a
+                & $bootstrapScript -Action Install -ProfilePaths @($profilePath) -RepoRoot $ScriptBase -Apply
             } catch {
-                Write-Warning ("Failed to create profile hardlink: {0}" -f $_)
+                Write-Warning ("Failed to install durable profile bootstrap: {0}" -f $_)
             }
         }
     }

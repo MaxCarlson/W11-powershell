@@ -178,27 +178,50 @@ Describe 'CDModule Location Macros and Tab Expansion' {
         }
     }
 
-    It 'expands recognized macros in command position only' {
+    It 'expands recognized macros in command and argument positions to portable paths without cd prefix' {
         $exp1 = Get-CdMacroExpansion -Line 'cds' -Cursor 3
         $exp1 | Should Not BeNullOrEmpty
         $exp1.StartOffset | Should Be 0
         $exp1.Length | Should Be 3
-        $exp1.Replacement | Should Be ("cd '" + (Join-Path $HOME 'src\scripts') + "'")
+        $exp1.Replacement | Should Be '~/src/scripts/'
 
         $exp2 = Get-CdMacroExpansion -Line '  cdsh' -Cursor 6
         $exp2 | Should Not BeNullOrEmpty
         $exp2.StartOffset | Should Be 2
         $exp2.Length | Should Be 4
-        $exp2.Replacement | Should Be ("cd '" + (Join-Path $HOME 'src\shared-python-modules') + "'")
+        $exp2.Replacement | Should Be '~/src/shared-python-modules/'
 
-        $exp3 = Get-CdMacroExpansion -Line 'git status; cdlmt' -Cursor 17
+        $exp3 = Get-CdMacroExpansion -Line 'cdlmt' -Cursor 5
         $exp3 | Should Not BeNullOrEmpty
-        $exp3.StartOffset | Should Be 12
-        $exp3.Length | Should Be 5
-        $exp3.Replacement | Should Be ("cd '" + (Join-Path $HOME 'src\llm-agent-toolkit') + "'")
+        $exp3.Replacement | Should Be '~/src/llm-agent-toolkit/'
 
-        (Get-CdMacroExpansion -Line 'echo cds' -Cursor 8) | Should BeNullOrEmpty
+        $exp4 = Get-CdMacroExpansion -Line 'cd cds' -Cursor 6
+        $exp4 | Should Not BeNullOrEmpty
+        $exp4.StartOffset | Should Be 3
+        $exp4.Length | Should Be 3
+        $exp4.Replacement | Should Be '~/src/scripts/'
+
+        $exp5 = Get-CdMacroExpansion -Line 'll cds' -Cursor 6
+        $exp5 | Should Not BeNullOrEmpty
+        $exp5.StartOffset | Should Be 3
+        $exp5.Length | Should Be 3
+        $exp5.Replacement | Should Be '~/src/scripts/'
+
+        $exp6 = Get-CdMacroExpansion -Line 'git status; cdlmt' -Cursor 17
+        $exp6 | Should Not BeNullOrEmpty
+        $exp6.StartOffset | Should Be 12
+        $exp6.Length | Should Be 5
+        $exp6.Replacement | Should Be '~/src/llm-agent-toolkit/'
+
+        $exp7 = Get-CdMacroExpansion -Line 'cdtor' -Cursor 5
+        $exp7 | Should Not BeNullOrEmpty
+        $exp7.Replacement | Should Be 'C:\Torrents\'
+
         (Get-CdMacroExpansion -Line 'echo "cds' -Cursor 9) | Should BeNullOrEmpty
+        (Get-CdMacroExpansion -Line "echo 'cds" -Cursor 9) | Should BeNullOrEmpty
+        (Get-CdMacroExpansion -Line 'echo $cds' -Cursor 9) | Should BeNullOrEmpty
+        (Get-CdMacroExpansion -Line '$a.cds' -Cursor 6) | Should BeNullOrEmpty
+        (Get-CdMacroExpansion -Line 'echo -cds' -Cursor 9) | Should BeNullOrEmpty
         (Get-CdMacroExpansion -Line 'cds ' -Cursor 4) | Should BeNullOrEmpty
         (Get-CdMacroExpansion -Line 'unknown' -Cursor 7) | Should BeNullOrEmpty
     }
@@ -209,10 +232,9 @@ Describe 'CDModule Location Macros and Tab Expansion' {
         $null = New-Item -Path $tempQuoteDir -ItemType Directory -Force
         try {
             $global:SCRIPTS_REPO = $tempQuoteDir
-            $exp = Get-CdMacroExpansion -Line 'cds' -Cursor 3
+            $exp = Get-CdMacroExpansion -Line 'll cds' -Cursor 6
             $exp | Should Not BeNullOrEmpty
-            $expectedEscaped = $tempQuoteDir.Replace("'", "''")
-            $exp.Replacement | Should Be "cd '$expectedEscaped'"
+            $exp.Replacement | Should Be "'~/AppData/Local/Temp/O''Brien''s dir/'"
         } finally {
             $global:SCRIPTS_REPO = $origScripts
             Remove-Item -LiteralPath $tempQuoteDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -247,5 +269,99 @@ Describe 'PSReadLine Tab Keybinding Integration' {
         $tabHandler = Get-PSReadLineKeyHandler -Key Tab -ErrorAction SilentlyContinue | Select-Object -First 1
         $tabHandler | Should Not BeNullOrEmpty
         $tabHandler.Description | Should Match 'Expand cd\* location macros'
+    }
+}
+
+Describe 'Durable Bootstrap Profile Installation and Rollback' {
+    BeforeAll {
+        $script:BootstrapScript = Join-Path $repoRoot 'Profiles\Install-ProfileBootstrap.ps1'
+        $script:TempProfileRoot = Join-Path $env:TEMP ("w11pwsh_bootstrap_test_" + [guid]::NewGuid().ToString('N'))
+        $script:TempBackupDir = Join-Path $script:TempProfileRoot 'Backups'
+        $script:DisposableProfile = Join-Path $script:TempProfileRoot 'Microsoft.PowerShell_profile.ps1'
+        $null = New-Item -Path $script:TempProfileRoot -ItemType Directory -Force
+        Set-Content -LiteralPath $script:DisposableProfile -Value '# legacy custom profile content'
+    }
+
+    AfterAll {
+        if ($script:TempProfileRoot -and (Test-Path -LiteralPath $script:TempProfileRoot)) {
+            Remove-Item -LiteralPath $script:TempProfileRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'defaults to dry-run without modifying existing profile or creating backups' {
+        $res = & $script:BootstrapScript -Action Install -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -PassThru
+        $res.Status | Should Be 'DryRun'
+        $res.Applied | Should Be $false
+        (Get-Content -LiteralPath $script:DisposableProfile -Raw).Trim() | Should Be '# legacy custom profile content'
+        (Test-Path -LiteralPath $script:TempBackupDir) | Should Be $false
+    }
+
+    It 'installs bootstrap with timestamped backup, is idempotent, verifies, and rolls back' {
+        $installRes = & $script:BootstrapScript -Action Install -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -Apply -PassThru
+        $installRes.Status | Should Be 'Installed'
+        $installRes.Applied | Should Be $true
+        (Test-Path -LiteralPath $installRes.BackupPath -PathType Leaf) | Should Be $true
+        (Get-Content -LiteralPath $installRes.BackupPath -Raw).Trim() | Should Be '# legacy custom profile content'
+
+        $verifyRes = & $script:BootstrapScript -Action Verify -ProfilePaths @($script:DisposableProfile) -RepoRoot $repoRoot -PassThru
+        $verifyRes.Status | Should Be 'ValidBootstrap'
+
+        $secondInstall = & $script:BootstrapScript -Action Install -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -Apply -PassThru
+        $secondInstall.Status | Should Be 'AlreadyInstalled'
+        $secondInstall.Applied | Should Be $false
+
+        $rollbackDry = & $script:BootstrapScript -Action Rollback -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -PassThru
+        $rollbackDry.Status | Should Be 'DryRun'
+
+        $rollbackRes = & $script:BootstrapScript -Action Rollback -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -Apply -PassThru
+        $rollbackRes.Status | Should Be 'RolledBack'
+        $rollbackRes.Applied | Should Be $true
+        (Get-Content -LiteralPath $script:DisposableProfile -Raw).Trim() | Should Be '# legacy custom profile content'
+
+        # Re-install for downstream isolated session tests
+        $null = & $script:BootstrapScript -Action Install -ProfilePaths @($script:DisposableProfile) -BackupDir $script:TempBackupDir -Apply
+    }
+
+    It 'loads CustomProfile.ps1 via disposable bootstrap in simulated SSH session with User PATH and tools' {
+        $out = pwsh -NoProfile -Command @"
+`$env:SSH_CONNECTION = '127.0.0.1 12345 127.0.0.1 22'
+`$env:MAX_FORCE_INTERACTIVE_PWSH = '1'
+`$env:PWSH_REPO = '$repoRoot'
+`$env:PATH = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+. '$script:DisposableProfile'
+foreach (`$cmd in @('eza', 'which', 'fd', 'git', 'ag', 'c2c', 'rwc', 'pclip')) {
+    `$c = Get-Command `$cmd -ErrorAction SilentlyContinue | Select-Object -First 1
+    "`$cmd=`$(`$null -ne `$c)"
+}
+"EXPAND_CDS=`$((Get-CdMacroExpansion -Line 'cds' -Cursor 3).Replacement)"
+"EXPAND_LL_CDS=`$((Get-CdMacroExpansion -Line 'll cds' -Cursor 6).Replacement)"
+ll Config/ | Select-Object -First 2 | Out-Null
+"LL_EXIT=`$LASTEXITCODE"
+l2 Config/ | Select-Object -First 2 | Out-Null
+"L2_EXIT=`$LASTEXITCODE"
+"@
+        $joined = $out -join "`n"
+        $joined | Should Match 'eza=True'
+        $joined | Should Match 'which=True'
+        $joined | Should Match 'fd=True'
+        $joined | Should Match 'git=True'
+        $joined | Should Match 'ag=True'
+        $joined | Should Match 'c2c=True'
+        $joined | Should Match 'rwc=True'
+        $joined | Should Match 'pclip=True'
+        $joined | Should Match 'EXPAND_CDS=~/src/scripts/'
+        $joined | Should Match 'EXPAND_LL_CDS=~/src/scripts/'
+        $joined | Should Match 'LL_EXIT=0'
+        $joined | Should Match 'L2_EXIT=0'
+    }
+
+    It 'preserves automation profile guard when invoked through disposable bootstrap' {
+        $out = pwsh -NoProfile -Command @"
+`$env:MAX_FORCE_AUTOMATION_PWSH = '1'
+`$env:PWSH_REPO = '$repoRoot'
+. '$script:DisposableProfile'
+"ProfileLoaded=`$global:ProfileLoaded"
+"@
+        ($out -join "`n") | Should Match 'ProfileLoaded=$'
     }
 }
