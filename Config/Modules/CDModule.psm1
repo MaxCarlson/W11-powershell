@@ -148,11 +148,36 @@ function Invoke-CdMacro {
     }
 }
 
+function Format-CdMacroExpansionPath {
+    param([Parameter(Mandatory)][string]$Destination)
+
+    $homeNorm = if ($HOME) { $HOME.TrimEnd('\', '/') } else { $null }
+    if ($homeNorm -and ($Destination -ieq $homeNorm)) {
+        $formatted = '~/'
+    } elseif ($homeNorm -and (
+        $Destination.StartsWith("$homeNorm\", [System.StringComparison]::OrdinalIgnoreCase) -or
+        $Destination.StartsWith("$homeNorm/", [System.StringComparison]::OrdinalIgnoreCase)
+    )) {
+        $rel = $Destination.Substring($homeNorm.Length).TrimStart('\', '/').Replace('\', '/')
+        $formatted = if ($rel) { "~/$rel/" } else { '~/' }
+    } else {
+        $formatted = $Destination
+        if (-not $formatted.EndsWith('\') -and -not $formatted.EndsWith('/')) {
+            $formatted += '\'
+        }
+    }
+
+    if ($formatted -match '[\s''"`$&|;(){}\[\]<>@#]') {
+        return "'" + $formatted.Replace("'", "''") + "'"
+    }
+    return $formatted
+}
+
 function Get-CdMacroExpansion {
     <#
     .SYNOPSIS
-    Returns an editable cd '<path>' replacement if the cursor is at the end of a
-    recognized cd* macro in command position, or $null otherwise.
+    Returns an editable path replacement if the cursor is at the end of a
+    recognized cd* macro in command or argument position, or $null otherwise.
     #>
     [CmdletBinding()]
     param(
@@ -169,14 +194,29 @@ function Get-CdMacroExpansion {
     $null = [System.Management.Automation.Language.Parser]::ParseInput($Line, [ref]$tokens, [ref]$errors)
     if (-not $tokens) { return $null }
 
-    $cmdFlag = [System.Management.Automation.Language.TokenFlags]::CommandName
+    $memberFlag = [System.Management.Automation.Language.TokenFlags]::MemberName
+    $allowedKinds = @(
+        [System.Management.Automation.Language.TokenKind]::Identifier,
+        [System.Management.Automation.Language.TokenKind]::Generic
+    )
+    $blockedPrevKinds = @(
+        [System.Management.Automation.Language.TokenKind]::Dot,
+        [System.Management.Automation.Language.TokenKind]::ColonColon
+    )
+
     $targetToken = $null
+    $prevToken = $null
     foreach ($tok in $tokens) {
         if ($tok.Kind -eq [System.Management.Automation.Language.TokenKind]::EndOfInput) { continue }
-        if ($tok.Extent.EndOffset -eq $Cursor -and ($tok.TokenFlags -band $cmdFlag)) {
-            $targetToken = $tok
+        if ($tok.Extent.EndOffset -eq $Cursor) {
+            if (($tok.Kind -in $allowedKinds) -and
+                -not ($tok.TokenFlags -band $memberFlag) -and
+                (-not $prevToken -or ($prevToken.Kind -notin $blockedPrevKinds))) {
+                $targetToken = $tok
+            }
             break
         }
+        $prevToken = $tok
     }
 
     if (-not $targetToken) { return $null }
@@ -184,13 +224,13 @@ function Get-CdMacroExpansion {
     $destination = Resolve-CdMacroPath -Name $targetToken.Text
     if (-not $destination) { return $null }
 
-    $escaped = $destination.Replace("'", "''")
+    $replacement = Format-CdMacroExpansionPath -Destination $destination
     return [pscustomobject]@{
         Macro       = $targetToken.Text
         Destination = $destination
         StartOffset = $targetToken.Extent.StartOffset
         Length      = ($targetToken.Extent.EndOffset - $targetToken.Extent.StartOffset)
-        Replacement = "cd '$escaped'"
+        Replacement = $replacement
     }
 }
 

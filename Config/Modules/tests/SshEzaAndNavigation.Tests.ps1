@@ -178,27 +178,50 @@ Describe 'CDModule Location Macros and Tab Expansion' {
         }
     }
 
-    It 'expands recognized macros in command position only' {
+    It 'expands recognized macros in command and argument positions to portable paths without cd prefix' {
         $exp1 = Get-CdMacroExpansion -Line 'cds' -Cursor 3
         $exp1 | Should Not BeNullOrEmpty
         $exp1.StartOffset | Should Be 0
         $exp1.Length | Should Be 3
-        $exp1.Replacement | Should Be ("cd '" + (Join-Path $HOME 'src\scripts') + "'")
+        $exp1.Replacement | Should Be '~/src/scripts/'
 
         $exp2 = Get-CdMacroExpansion -Line '  cdsh' -Cursor 6
         $exp2 | Should Not BeNullOrEmpty
         $exp2.StartOffset | Should Be 2
         $exp2.Length | Should Be 4
-        $exp2.Replacement | Should Be ("cd '" + (Join-Path $HOME 'src\shared-python-modules') + "'")
+        $exp2.Replacement | Should Be '~/src/shared-python-modules/'
 
-        $exp3 = Get-CdMacroExpansion -Line 'git status; cdlmt' -Cursor 17
+        $exp3 = Get-CdMacroExpansion -Line 'cdlmt' -Cursor 5
         $exp3 | Should Not BeNullOrEmpty
-        $exp3.StartOffset | Should Be 12
-        $exp3.Length | Should Be 5
-        $exp3.Replacement | Should Be ("cd '" + (Join-Path $HOME 'src\llm-agent-toolkit') + "'")
+        $exp3.Replacement | Should Be '~/src/llm-agent-toolkit/'
 
-        (Get-CdMacroExpansion -Line 'echo cds' -Cursor 8) | Should BeNullOrEmpty
+        $exp4 = Get-CdMacroExpansion -Line 'cd cds' -Cursor 6
+        $exp4 | Should Not BeNullOrEmpty
+        $exp4.StartOffset | Should Be 3
+        $exp4.Length | Should Be 3
+        $exp4.Replacement | Should Be '~/src/scripts/'
+
+        $exp5 = Get-CdMacroExpansion -Line 'll cds' -Cursor 6
+        $exp5 | Should Not BeNullOrEmpty
+        $exp5.StartOffset | Should Be 3
+        $exp5.Length | Should Be 3
+        $exp5.Replacement | Should Be '~/src/scripts/'
+
+        $exp6 = Get-CdMacroExpansion -Line 'git status; cdlmt' -Cursor 17
+        $exp6 | Should Not BeNullOrEmpty
+        $exp6.StartOffset | Should Be 12
+        $exp6.Length | Should Be 5
+        $exp6.Replacement | Should Be '~/src/llm-agent-toolkit/'
+
+        $exp7 = Get-CdMacroExpansion -Line 'cdtor' -Cursor 5
+        $exp7 | Should Not BeNullOrEmpty
+        $exp7.Replacement | Should Be 'C:\Torrents\'
+
         (Get-CdMacroExpansion -Line 'echo "cds' -Cursor 9) | Should BeNullOrEmpty
+        (Get-CdMacroExpansion -Line "echo 'cds" -Cursor 9) | Should BeNullOrEmpty
+        (Get-CdMacroExpansion -Line 'echo $cds' -Cursor 9) | Should BeNullOrEmpty
+        (Get-CdMacroExpansion -Line '$a.cds' -Cursor 6) | Should BeNullOrEmpty
+        (Get-CdMacroExpansion -Line 'echo -cds' -Cursor 9) | Should BeNullOrEmpty
         (Get-CdMacroExpansion -Line 'cds ' -Cursor 4) | Should BeNullOrEmpty
         (Get-CdMacroExpansion -Line 'unknown' -Cursor 7) | Should BeNullOrEmpty
     }
@@ -209,10 +232,9 @@ Describe 'CDModule Location Macros and Tab Expansion' {
         $null = New-Item -Path $tempQuoteDir -ItemType Directory -Force
         try {
             $global:SCRIPTS_REPO = $tempQuoteDir
-            $exp = Get-CdMacroExpansion -Line 'cds' -Cursor 3
+            $exp = Get-CdMacroExpansion -Line 'll cds' -Cursor 6
             $exp | Should Not BeNullOrEmpty
-            $expectedEscaped = $tempQuoteDir.Replace("'", "''")
-            $exp.Replacement | Should Be "cd '$expectedEscaped'"
+            $exp.Replacement | Should Be "'~/AppData/Local/Temp/O''Brien''s dir/'"
         } finally {
             $global:SCRIPTS_REPO = $origScripts
             Remove-Item -LiteralPath $tempQuoteDir -Recurse -Force -ErrorAction SilentlyContinue
