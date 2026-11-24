@@ -66,6 +66,9 @@ if ($script:IsAutomationShell) {
     return
 }
 
+# --- Terminal session identity ---
+. (Join-Path $PSScriptRoot 'Initialize-TerminalSessionIdentity.ps1')
+
 # Debug output is opt-in only
 $script:DebugProfile = $env:POWERSHELL_PROFILE_DEBUG -eq "1"
 # -------------------------------------------------------
