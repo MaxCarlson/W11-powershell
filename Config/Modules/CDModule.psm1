@@ -127,8 +127,8 @@ function Resolve-CdMacroPath {
                 -WarningMessage "DOTFILES_REPO not found. Set `$env:DOTFILES_REPO" `
                 -EmitWarnings:$EmitWarnings)
         }
-        'cdsh'   { return (Resolve-CdSrcRepoPath -RepoName 'shared-python-modules') }
-        'cdlmt'  { return (Resolve-CdSrcRepoPath -RepoName 'llm-agent-toolkit') }
+        'cdspm'  { return (Resolve-CdSrcRepoPath -RepoName 'shared-python-modules') }
+        'cdllm'  { return (Resolve-CdSrcRepoPath -RepoName 'llm-agent-toolkit') }
         'cdtor'  { return $script:CTorrentsPath }
         'cdtord' { return $script:DTorrentsPath }
         'cdpo'   { return $script:PicturesSavedPath }
@@ -252,8 +252,8 @@ function cdpwsh { Invoke-CdMacro 'cdpwsh' }
 function cdps   { Invoke-CdMacro 'cdps' }
 function cdmo   { Invoke-CdMacro 'cdmo' }
 function cddot  { Invoke-CdMacro 'cddot' }
-function cdsh   { Invoke-CdMacro 'cdsh' }
-function cdlmt  { Invoke-CdMacro 'cdlmt' }
+function cdspm  { Invoke-CdMacro 'cdspm' }
+function cdllm  { Invoke-CdMacro 'cdllm' }
 function cdtor  { Invoke-CdMacro 'cdtor' }
 function cdtord { Invoke-CdMacro 'cdtord' }
 function cdpo   { Invoke-CdMacro 'cdpo' }

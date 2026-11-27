@@ -135,14 +135,19 @@ Describe 'CDModule Location Macros and Tab Expansion' {
         Import-Module $cdModulePath -Force
     }
 
-    It 'resolves cdsh and cdlmt to existing repositories under ~/src' {
-        $sh = Resolve-CdMacroPath -Name 'cdsh'
-        $sh | Should Be (Join-Path $HOME 'src\shared-python-modules')
-        (Test-Path -LiteralPath $sh -PathType Container) | Should Be $true
+    It 'resolves repository shortcuts to existing repositories under ~/src' {
+        $spm = Resolve-CdMacroPath -Name 'cdspm'
+        $spm | Should Be (Join-Path $HOME 'src\shared-python-modules')
+        (Test-Path -LiteralPath $spm -PathType Container) | Should Be $true
 
-        $lmt = Resolve-CdMacroPath -Name 'cdlmt'
-        $lmt | Should Be (Join-Path $HOME 'src\llm-agent-toolkit')
-        (Test-Path -LiteralPath $lmt -PathType Container) | Should Be $true
+        $llm = Resolve-CdMacroPath -Name 'cdllm'
+        $llm | Should Be (Join-Path $HOME 'src\llm-agent-toolkit')
+        (Test-Path -LiteralPath $llm -PathType Container) | Should Be $true
+
+        Resolve-CdMacroPath -Name 'cdsh' | Should BeNullOrEmpty
+        Resolve-CdMacroPath -Name 'cdlmt' | Should BeNullOrEmpty
+        Get-Command cdsh -ErrorAction SilentlyContinue | Should BeNullOrEmpty
+        Get-Command cdlmt -ErrorAction SilentlyContinue | Should BeNullOrEmpty
     }
 
     It 'resolves all expected cd* location macros' {
@@ -162,8 +167,8 @@ Describe 'CDModule Location Macros and Tab Expansion' {
             cdps   = $repoRoot
             cdmo   = Join-Path $repoRoot 'Config\Modules'
             cddot  = Join-Path $HOME 'src\dotfiles'
-            cdsh   = Join-Path $HOME 'src\shared-python-modules'
-            cdlmt  = Join-Path $HOME 'src\llm-agent-toolkit'
+            cdspm  = Join-Path $HOME 'src\shared-python-modules'
+            cdllm  = Join-Path $HOME 'src\llm-agent-toolkit'
             cdtor  = 'C:\Torrents'
             cdtord = 'D:\Torrents'
             cdpo   = 'D:\Pictures\Saved'
@@ -185,13 +190,13 @@ Describe 'CDModule Location Macros and Tab Expansion' {
         $exp1.Length | Should Be 3
         $exp1.Replacement | Should Be '~/src/scripts/'
 
-        $exp2 = Get-CdMacroExpansion -Line '  cdsh' -Cursor 6
+        $exp2 = Get-CdMacroExpansion -Line '  cdspm' -Cursor 7
         $exp2 | Should Not BeNullOrEmpty
         $exp2.StartOffset | Should Be 2
-        $exp2.Length | Should Be 4
+        $exp2.Length | Should Be 5
         $exp2.Replacement | Should Be '~/src/shared-python-modules/'
 
-        $exp3 = Get-CdMacroExpansion -Line 'cdlmt' -Cursor 5
+        $exp3 = Get-CdMacroExpansion -Line 'cdllm' -Cursor 5
         $exp3 | Should Not BeNullOrEmpty
         $exp3.Replacement | Should Be '~/src/llm-agent-toolkit/'
 
@@ -207,7 +212,7 @@ Describe 'CDModule Location Macros and Tab Expansion' {
         $exp5.Length | Should Be 3
         $exp5.Replacement | Should Be '~/src/scripts/'
 
-        $exp6 = Get-CdMacroExpansion -Line 'git status; cdlmt' -Cursor 17
+        $exp6 = Get-CdMacroExpansion -Line 'git status; cdllm' -Cursor 17
         $exp6 | Should Not BeNullOrEmpty
         $exp6.StartOffset | Should Be 12
         $exp6.Length | Should Be 5
@@ -216,6 +221,9 @@ Describe 'CDModule Location Macros and Tab Expansion' {
         $exp7 = Get-CdMacroExpansion -Line 'cdtor' -Cursor 5
         $exp7 | Should Not BeNullOrEmpty
         $exp7.Replacement | Should Be 'C:\Torrents\'
+
+        (Get-CdMacroExpansion -Line 'cdsh' -Cursor 4) | Should BeNullOrEmpty
+        (Get-CdMacroExpansion -Line 'cdlmt' -Cursor 5) | Should BeNullOrEmpty
 
         (Get-CdMacroExpansion -Line 'echo "cds' -Cursor 9) | Should BeNullOrEmpty
         (Get-CdMacroExpansion -Line "echo 'cds" -Cursor 9) | Should BeNullOrEmpty
@@ -241,13 +249,13 @@ Describe 'CDModule Location Macros and Tab Expansion' {
         }
     }
 
-    It 'navigates directly when cdsh and cdlmt are invoked' {
+    It 'navigates directly when repo shortcuts are invoked' {
         Push-Location $repoRoot
         try {
-            cdsh
+            cdspm
             (Get-Location).Path | Should Be (Join-Path $HOME 'src\shared-python-modules')
 
-            cdlmt
+            cdllm
             (Get-Location).Path | Should Be (Join-Path $HOME 'src\llm-agent-toolkit')
         } finally {
             Pop-Location
